@@ -1,0 +1,1463 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cotizador de impresión 3D — Tritic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;600&family=Syncopate:wght@700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --fondo:#FFFFFF; --fondo-alt:#F4F7F8; --tinta:#0E1B24; --tinta-2:#3A4A55; --tinta-3:#5A6973;
+  --titulo:#00476A; --filete:#D5DDE1; --filete-f:#5A6973; --azul:#00476A; --azul-noche:#04202F;
+  --azul-600:#0A6E9C; --azul-200:#B7CCD8; --azul-100:#D6E6EE; --azul-50:#EEF5F8;
+  --verde:#00FFC7; --ok-fg:#006B53; --ok-bg:#E0FBF4; --verde-100:#CCFFF3;
+  --warn-fg:#A15300; --warn-bg:#FFF4E0; --err-fg:#B3261E; --err-bg:#FDECEA; --info-bg:#E6F0F5;
+  --punto:#B7CCD8; --logo:#00476A; --campo:#FFFFFF;
+  --sans:"IBM Plex Sans", Arial, Helvetica, sans-serif;
+  --mono:"IBM Plex Mono", Consolas, "Courier New", monospace;
+  --marca:"Syncopate", "Arial Black", Arial, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --fondo:#04202F; --fondo-alt:#0A2C3E; --tinta:#E9EEF1; --tinta-2:#B7C6CF; --tinta-3:#8FA4B0;
+    --titulo:#FFFFFF; --filete:#1B4257; --filete-f:#8FA4B0; --azul-600:#5B9BBF; --azul-200:#5B7F93;
+    --azul-100:#0F3A50; --azul-50:#0A2C3E; --ok-fg:#5CF0CF; --ok-bg:#083A33; --verde-100:#0B3E36;
+    --warn-fg:#FFB35C; --warn-bg:#3A2A10; --err-fg:#FF8A80; --err-bg:#3A1715; --info-bg:#0D3448;
+    --punto:#16435A; --logo:#00FFC7; --campo:#0A2C3E; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --fondo:#04202F; --fondo-alt:#0A2C3E; --tinta:#E9EEF1; --tinta-2:#B7C6CF; --tinta-3:#8FA4B0;
+  --titulo:#FFFFFF; --filete:#1B4257; --filete-f:#8FA4B0; --azul-600:#5B9BBF; --azul-200:#5B7F93;
+  --azul-100:#0F3A50; --azul-50:#0A2C3E; --ok-fg:#5CF0CF; --ok-bg:#083A33; --verde-100:#0B3E36;
+  --warn-fg:#FFB35C; --warn-bg:#3A2A10; --err-fg:#FF8A80; --err-bg:#3A1715; --info-bg:#0D3448;
+  --punto:#16435A; --logo:#00FFC7; --campo:#0A2C3E; color-scheme: dark;
+}
+:root{ box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px); }
+html{ scroll-padding-top:env(safe-area-inset-top,0px); }
+*,*::before,*::after{ box-sizing:inherit; }
+[hidden]{ display:none !important; }
+body{ margin:0; background:var(--fondo); color:var(--tinta); font:400 15px/1.5 var(--sans); -webkit-font-smoothing:antialiased; }
+img,svg,canvas{ max-width:100%; }
+button,input,select,textarea{ font:inherit; color:inherit; }
+:focus-visible{ outline:2px solid var(--azul-600); outline-offset:2px; }
+.mono{ font-family:var(--mono); font-variant-numeric:tabular-nums; }
+
+/* ---------- Encabezado ---------- */
+.top{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px clamp(16px,4vw,48px); border-bottom:1px solid var(--filete); }
+.logo{ display:block; width:112px; height:auto; color:var(--logo); }
+.serie{ font:700 12px/1 var(--marca); letter-spacing:.08em; color:var(--titulo); text-transform:uppercase; }
+
+/* ---------- Estructura ---------- */
+.wrap{ max-width:1320px; margin:0 auto; padding:32px clamp(16px,4vw,48px) 48px; }
+.intro{ max-width:720px; margin-bottom:32px; }
+h1{ font:600 clamp(28px,3.4vw,36px)/1.15 var(--sans); color:var(--titulo); margin:0 0 12px; letter-spacing:-.005em; }
+.entradilla{ font-size:18px; line-height:1.45; color:var(--tinta-2); margin:0; }
+.layout{ display:grid; grid-template-columns:minmax(0,8fr) minmax(320px,4fr); gap:32px; align-items:start; }
+@media (max-width:980px){ .layout{ grid-template-columns:minmax(0,1fr); } }
+
+.paso{ display:flex; align-items:center; gap:12px; margin:0 0 12px; }
+.chip{ flex:none; display:inline-grid; place-items:center; width:26px; height:26px; background:var(--azul); color:var(--verde); font:500 14px/1 var(--mono); border-radius:0; }
+h2{ font:600 20px/1.2 var(--sans); color:var(--titulo); margin:0; }
+.bloque + .bloque{ margin-top:32px; }
+
+/* ---------- Zona de carga / visor ---------- */
+.hoja{ position:relative; border:1px solid var(--filete-f); background-color:var(--azul-50);
+  background-image:radial-gradient(var(--punto) 1px, transparent 1.2px); background-size:19px 19px; background-position:9px 9px;
+  aspect-ratio:16/10; min-height:320px; overflow:hidden; }
+@media (max-width:620px){
+  .modo-cara{ top:auto; bottom:8px; }
+  .hoja{ aspect-ratio:auto; height:400px; }
+  .cotas{ font-size:11px; left:8px; top:8px; }
+  .cotas span{ padding:5px 7px; }
+  .visor-ayuda{ display:none !important; }
+  th.col-pu, td.col-pu{ display:none; }
+}
+.hoja.arrastre{ outline:2px dashed var(--azul-600); outline-offset:-10px; }
+.vacia{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px; gap:12px; }
+.vacia svg{ width:48px; height:48px; color:var(--titulo); }
+.vacia p{ margin:0; max-width:420px; color:var(--tinta-2); }
+.vacia .grande{ font:600 18px/1.3 var(--sans); color:var(--tinta); }
+.btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 18px; border:1px solid var(--azul); background:var(--azul); color:#FFFFFF; font-weight:600; cursor:pointer; border-radius:2px; text-decoration:none; }
+.btn:hover{ background:var(--azul-noche); border-color:var(--azul-noche); }
+.btn.sec{ background:transparent; color:var(--titulo); border-color:var(--filete-f); }
+.btn.sec:hover{ background:var(--azul-50); }
+.btn[disabled]{ opacity:.45; cursor:not-allowed; }
+.nota-formatos{ font:400 12px/1.4 var(--mono); color:var(--tinta-3); }
+#visor{ position:absolute; inset:0; display:none; touch-action:none; cursor:grab; }
+#visor.activo{ display:block; }
+#visor:active{ cursor:grabbing; }
+.cotas{ position:absolute; left:12px; top:12px; display:none; background:var(--fondo); border:1px solid var(--filete-f); font:400 12px/1 var(--mono); }
+.cotas.activo{ display:grid; grid-template-columns:auto auto; }
+.cotas span{ padding:7px 10px; border-bottom:1px solid var(--filete); }
+.cotas span:nth-child(odd){ color:var(--tinta-3); border-right:1px solid var(--filete); }
+.cotas span:nth-last-child(-n+2){ border-bottom:0; }
+.visor-ayuda{ position:absolute; right:12px; bottom:12px; font:400 11px/1.3 var(--mono); color:var(--tinta-3); background:var(--fondo); padding:4px 8px; border:1px solid var(--filete); display:none; }
+.visor-ayuda.activo{ display:block; }
+.cargando{ position:absolute; inset:0; display:none; place-items:center; background:color-mix(in srgb, var(--azul-50) 85%, transparent); }
+.cargando.activo{ display:grid; }
+.cargando div{ background:var(--fondo); border:1px solid var(--filete-f); padding:14px 18px; font:400 13px/1.4 var(--mono); color:var(--tinta-2); min-width:260px; }
+.barra{ height:3px; background:var(--filete); margin-top:10px; overflow:hidden; position:relative; }
+.barra::after{ content:""; position:absolute; inset:0 60% 0 0; background:var(--azul); animation:mover 1.1s linear infinite; }
+@keyframes mover{ from{ transform:translateX(-100%);} to{ transform:translateX(250%);} }
+@media (prefers-reduced-motion:reduce){ .barra::after{ animation:none; inset:0; } }
+
+/* ---------- Tabla de piezas ---------- */
+.acciones-piezas{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin:16px 0 8px; flex-wrap:wrap; }
+.tabla-scroll{ overflow-x:auto; }
+table{ width:100%; border-collapse:collapse; font-size:14px; }
+caption{ text-align:left; font:600 14px/1.3 var(--sans); padding:0 0 8px; color:var(--tinta); }
+th{ text-align:left; font-weight:600; padding:8px 10px; border-top:1px solid var(--filete-f); border-bottom:1px solid var(--filete-f); white-space:nowrap; }
+td{ padding:10px; border-bottom:1px solid var(--filete); vertical-align:middle; }
+tbody tr:last-child td{ border-bottom:1px solid var(--filete-f); }
+td.num, th.num{ text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums; }
+tbody tr{ cursor:pointer; }
+tbody tr:hover td{ background:var(--fondo-alt); }
+tbody tr.sel td{ background:var(--azul-100); }
+.nombre-archivo{ font-weight:600; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; }
+.sub{ font:400 12px/1.3 var(--mono); color:var(--tinta-3); }
+.quitar{ border:0; background:transparent; color:var(--tinta-3); cursor:pointer; padding:6px; min-width:32px; min-height:32px; }
+.quitar:hover{ color:var(--err-fg); }
+.etq{ display:inline-block; font:500 11px/1 var(--mono); letter-spacing:.06em; text-transform:uppercase; padding:4px 6px; border:1px solid currentColor; }
+.etq.warn{ color:var(--warn-fg); background:var(--warn-bg); }
+.etq.err{ color:var(--err-fg); background:var(--err-bg); }
+.etq.ok{ color:var(--ok-fg); background:var(--ok-bg); }
+
+/* ---------- Panel ---------- */
+.panel{ position:sticky; top:calc(16px + env(safe-area-inset-top,0px)); }
+@media (max-width:980px){ .panel{ position:static; } }
+.caja{ border:1px solid var(--filete-f); background:var(--fondo); }
+.caja-cab{ padding:12px 16px; border-bottom:1px solid var(--filete); display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+.caja-cab strong{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.caja-cuerpo{ padding:16px; display:grid; gap:18px; }
+.campo{ display:grid; gap:6px; }
+.campo > label, .campo > .lbl{ font-weight:600; font-size:14px; display:flex; justify-content:space-between; gap:8px; }
+.campo .val{ font:400 13px/1.4 var(--mono); color:var(--tinta-2); font-weight:400; }
+.ayuda{ font-size:12px; line-height:1.4; color:var(--tinta-3); margin:0; }
+select, input[type=number], input[type=text], input[type=email], input[type=tel], textarea{
+  width:100%; min-height:42px; padding:8px 10px; border:1px solid var(--filete-f); background:var(--campo); border-radius:2px; }
+textarea{ min-height:80px; resize:vertical; }
+.seg{ display:grid; grid-auto-flow:column; grid-auto-columns:1fr; border:1px solid var(--filete-f); border-radius:2px; }
+.seg label{ position:relative; }
+.seg input{ position:absolute; opacity:0; inset:0; margin:0; cursor:pointer; }
+.seg span{ display:grid; place-items:center; text-align:center; min-height:40px; padding:6px 8px; font-size:14px; border-right:1px solid var(--filete); line-height:1.2; }
+.seg label:last-child span{ border-right:0; }
+.seg input:checked + span{ background:var(--azul); color:#FFFFFF; font-weight:600; }
+.seg input:focus-visible + span{ outline:2px solid var(--azul-600); outline-offset:-3px; }
+.seg small{ display:block; font:400 11px/1.2 var(--mono); opacity:.8; margin-top:2px; }
+.colores{ display:flex; flex-wrap:wrap; gap:8px; }
+.colores label{ position:relative; }
+.colores input{ position:absolute; opacity:0; inset:0; margin:0; cursor:pointer; }
+.colores span{ display:block; width:32px; height:32px; border:1px solid var(--filete-f); border-radius:2px; }
+.colores input:checked + span{ outline:2px solid var(--azul-600); outline-offset:2px; }
+.colores input:focus-visible + span{ outline:2px dashed var(--azul-600); outline-offset:3px; }
+input[type=range]{ width:100%; accent-color:var(--azul); height:28px; }
+.fila2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.stepper{ display:grid; grid-template-columns:42px 1fr 42px; }
+.stepper button{ border:1px solid var(--filete-f); background:var(--fondo-alt); cursor:pointer; min-height:42px; }
+.stepper input{ text-align:center; border-left:0; border-right:0; border-radius:0; font-family:var(--mono); }
+.aplicar{ background:none; border:0; padding:0; color:var(--azul-600); text-decoration:underline; text-underline-offset:3px; cursor:pointer; font-size:13px; justify-self:start; }
+.chico{ min-height:36px; padding:6px 12px; font-size:13px; }
+.acc-orient{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.btn.sec.activo{ background:var(--azul); color:#FFFFFF; border-color:var(--azul); }
+.modo-cara{ position:absolute; left:50%; top:12px; transform:translateX(-50%); display:flex; align-items:center; gap:12px; background:var(--azul); color:#FFFFFF; padding:6px 6px 6px 14px; font-size:13px; font-weight:600; max-width:calc(100% - 24px); }
+.modo-cara .btn.sec{ background:var(--fondo); color:var(--titulo); border-color:var(--fondo); }
+#visor.eligiendo{ cursor:crosshair; }
+.sin-pieza{ padding:20px 16px; color:var(--tinta-3); font-size:14px; }
+
+/* ---------- Cajetín de cotización ---------- */
+.cajetin{ border-bottom:1px solid var(--filete-f); }
+.cajetin .caj-fila:last-child > div{ border-bottom:0; }
+.caj-fila{ display:grid; grid-template-columns:1fr 1fr; }
+.caj-fila > div{ padding:8px 12px; border-bottom:1px solid var(--filete); }
+.caj-fila > div + div{ border-left:1px solid var(--filete); }
+.caj-etq{ display:block; font:500 10.5px/1.2 var(--mono); letter-spacing:.06em; text-transform:uppercase; color:var(--tinta-3); margin-bottom:2px; }
+.caj-val{ font:400 13px/1.3 var(--mono); }
+.desglose{ padding:4px 12px 8px; }
+.desglose div{ display:flex; justify-content:space-between; gap:12px; padding:6px 0; font-size:14px; border-bottom:1px solid var(--filete); }
+.desglose div:last-child{ border-bottom:0; }
+.desglose span:last-child{ font-family:var(--mono); font-variant-numeric:tabular-nums; text-align:right; }
+.desglose .desc span:last-child{ color:var(--ok-fg); }
+.total{ background:var(--azul); color:#FFFFFF; padding:16px; display:grid; gap:4px; }
+.total .caj-etq{ color:var(--azul-200); color:#B7CCD8; }
+.total .monto{ font:500 clamp(30px,3vw,36px)/1.1 var(--mono); color:var(--verde); font-variant-numeric:tabular-nums; }
+.total .det{ font:400 12px/1.4 var(--mono); color:#B7CCD8; }
+.entrega{ padding:12px; border-bottom:1px solid var(--filete); }
+.botones{ display:grid; gap:8px; padding:12px; }
+.aviso{ margin:12px; padding:10px 12px; border:1px solid currentColor; border-radius:2px; font-size:13px; line-height:1.45; }
+.aviso.warn{ color:var(--warn-fg); background:var(--warn-bg); }
+.aviso.err{ color:var(--err-fg); background:var(--err-bg); }
+.aviso b{ font:500 11px/1 var(--mono); letter-spacing:.06em; display:block; margin-bottom:4px; }
+.aviso p{ margin:0; color:var(--tinta); }
+
+.pie{ max-width:1320px; margin:0 auto; padding:24px clamp(16px,4vw,48px) 40px; border-top:1px solid var(--filete); display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:24px; font-size:13px; color:var(--tinta-2); }
+.pie h3{ font:600 14px/1.3 var(--sans); color:var(--tinta); margin:0 0 6px; }
+.pie p{ margin:0; }
+
+/* ---------- Diálogo ---------- */
+dialog{ border:1px solid var(--filete-f); padding:0; width:min(560px, calc(100vw - 24px)); background:var(--fondo); color:var(--tinta); border-radius:2px; max-height:calc(100dvh - 24px); }
+dialog::backdrop{ background:rgba(4,32,47,.55); }
+.dlg-cab{ padding:16px 20px; border-bottom:1px solid var(--filete); display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.dlg-cab h2{ font-size:18px; }
+.dlg-cuerpo{ padding:20px; display:grid; gap:14px; }
+.dlg-pie{ padding:16px 20px; border-top:1px solid var(--filete); display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; }
+.trampa{ position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
+.pasos-envio{ list-style:none; margin:0; padding:0; display:grid; gap:0; border-top:1px solid var(--filete); }
+.pasos-envio li{ display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--filete); font-size:14px; }
+.pasos-envio li span:last-child{ font:500 11px/1.6 var(--mono); letter-spacing:.06em; text-transform:uppercase; color:var(--tinta-3); white-space:nowrap; }
+.pasos-envio li.hecho span:last-child{ color:var(--ok-fg); }
+.pasos-envio li.activo span:last-child{ color:var(--azul-600); }
+.pasos-envio li.error span:last-child{ color:var(--err-fg); }
+.exito-folio{ background:var(--azul); color:#FFFFFF; padding:16px; display:grid; gap:4px; }
+.exito-folio .caj-etq{ color:#B7CCD8; }
+.exito-folio .mono{ font-size:32px; line-height:1.1; color:var(--verde); }
+.confirmacion{ padding:10px 12px; background:var(--ok-bg); color:var(--ok-fg); border:1px solid currentColor; font-size:13px; display:none; }
+.confirmacion.activo{ display:block; }
+
+/* ---------- Hoja imprimible ---------- */
+#impresion{ display:none; }
+@media print{
+  @page{ size:letter; margin:16mm 18mm 20mm; }
+  body > *:not(#impresion){ display:none !important; }
+  #impresion{ display:block; color:#0E1B24; font:10.5pt/15pt var(--sans); --filete:#D5DDE1; --filete-f:#5A6973; --tinta:#0E1B24; --tinta-3:#5A6973; --titulo:#00476A; }
+  #impresion .serie{ color:#00476A; }
+  #impresion .p-cab{ display:flex; justify-content:space-between; align-items:center; border-bottom:.5pt solid #D5DDE1; padding-bottom:8pt; margin-bottom:18pt; }
+  #impresion .p-cab svg{ width:30mm; color:#00476A; }
+  #impresion h1{ font-size:24pt; line-height:28pt; margin:0 0 6pt; color:#00476A; }
+  #impresion table{ font-size:9pt; margin:12pt 0; }
+  #impresion th, #impresion td{ padding:4pt 6pt; }
+  #impresion .p-caj{ display:grid; grid-template-columns:30mm 1fr 1.5fr .6fr .9fr; border:1pt solid #5A6973; margin-top:18pt; }
+  #impresion .p-caj div{ padding:4pt 6pt; border-left:.5pt solid #D5DDE1; }
+  #impresion .p-caj div:first-child{ border-left:0; display:grid; place-items:center; }
+  #impresion .p-caj svg{ width:24mm; color:#00476A; }
+  #impresion .p-tot{ margin-left:auto; width:70mm; }
+  #impresion .p-tot div{ display:flex; justify-content:space-between; padding:3pt 0; border-bottom:.5pt solid #D5DDE1; }
+  #impresion .p-tot div:last-child{ font-weight:600; border-bottom:1pt solid #5A6973; }
+  #impresion .p-notas{ font-size:8.5pt; line-height:12pt; color:#3A4A55; margin-top:18pt; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <a href="#" aria-label="Tritic"><svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="245 267 5500 1031" role="img" aria-label="Tritic"><title>Tritic</title><g transform="translate(0,1563) scale(0.1,-0.1)" fill="currentColor"><path d="M21485 12944 c-185 -19 -357 -43 -450 -60 -152 -29 -230 -46 -275 -60 -25 -8 -53 -14 -64 -14 -10 0 -39 -7 -65 -14 -25 -8 -73 -23 -106 -32 -33 -9 -78 -22 -100 -29 -22 -6 -67 -20 -100 -29 -33 -10 -75 -24 -93 -32 -18 -8 -41 -14 -50 -14 -10 0 -27 -7 -38 -15 -10 -8 -27 -15 -36 -15 -10 0 -32 -6 -50 -14 -18 -8 -53 -22 -78 -31 -25 -9 -58 -23 -75 -30 -16 -7 -50 -21 -75 -30 -25 -10 -73 -31 -108 -47 -34 -15 -64 -28 -67 -28 -7 0 -134 -59 -155 -71 -8 -5 -22 -12 -30 -15 -8 -3 -22 -10 -30 -15 -8 -5 -22 -12 -30 -15 -8 -3 -22 -10 -30 -15 -8 -5 -22 -12 -30 -15 -8 -3 -22 -10 -30 -15 -8 -5 -22 -12 -30 -15 -8 -3 -22 -10 -30 -15 -8 -5 -37 -20 -65 -34 -27 -14 -77 -41 -110 -60 -33 -19 -67 -38 -75 -42 -8 -3 -97 -56 -198 -117 -101 -61 -191 -115 -201 -121 -9 -5 -110 -73 -225 -150 -114 -77 -215 -144 -224 -150 -9 -5 -45 -30 -79 -55 -35 -25 -111 -79 -169 -120 -59 -41 -160 -114 -224 -161 -129 -96 -154 -111 -164 -102 -3 3 -6 359 -6 790 l0 783 -1320 0 -1320 0 0 -4905 0 -4905 1320 0 1320 0 0 2948 0 2948 88 85 c456 441 949 840 1328 1076 77 48 282 171 294 176 8 4 29 16 45 27 17 11 37 22 45 26 8 3 22 9 30 14 62 38 403 201 500 240 30 12 69 28 85 35 17 7 50 21 75 30 25 9 60 23 78 31 18 8 40 14 50 14 9 0 26 7 36 15 11 8 28 15 38 15 9 0 32 6 50 14 18 7 60 21 93 31 33 10 78 23 100 30 22 7 69 21 105 30 36 9 88 23 115 30 52 14 145 34 280 59 513 95 1201 97 1750 4 33 -6 85 -14 115 -18 30 -4 75 -12 100 -18 25 -5 81 -18 125 -27 44 -9 98 -21 120 -27 22 -5 61 -13 87 -18 26 -5 56 -13 67 -19 11 -6 30 -11 43 -11 13 0 43 -6 68 -14 25 -8 72 -22 105 -32 111 -31 150 -43 244 -74 54 -18 97 -28 102 -23 5 5 8 486 7 1109 l-3 1099 -55 16 c-30 9 -93 24 -140 34 -47 9 -114 23 -150 30 -208 43 -524 91 -780 119 -74 9 -180 21 -235 27 -155 18 -882 21 -1040 3z M52260 12955 c-8 -2 -103 -8 -210 -14 -218 -13 -457 -34 -630 -56 -63 -8 -133 -15 -155 -15 -22 -1 -67 -7 -100 -15 -33 -8 -81 -15 -106 -15 -25 0 -59 -4 -75 -10 -16 -5 -63 -14 -104 -20 -41 -5 -100 -14 -130 -20 -177 -34 -219 -43 -260 -52 -25 -6 -65 -14 -90 -19 -25 -4 -65 -13 -90 -19 -25 -7 -72 -19 -105 -27 -170 -42 -268 -67 -350 -90 -124 -35 -162 -46 -195 -58 -19 -7 -51 -18 -70 -24 -19 -7 -48 -16 -65 -21 -39 -11 -96 -31 -220 -77 -22 -9 -58 -22 -80 -30 -22 -8 -53 -21 -70 -28 -16 -7 -86 -36 -155 -65 -128 -54 -283 -124 -310 -141 -8 -5 -22 -12 -30 -15 -8 -3 -22 -9 -30 -14 -8 -5 -49 -27 -90 -48 -102 -53 -136 -73 -270 -154 -63 -38 -124 -75 -135 -81 -11 -7 -36 -24 -55 -38 -19 -14 -42 -29 -50 -32 -8 -4 -52 -33 -97 -65 -523 -369 -990 -868 -1298 -1389 -42 -71 -80 -135 -85 -143 -12 -20 -168 -336 -185 -375 -7 -16 -20 -50 -30 -75 -9 -25 -23 -57 -31 -72 -8 -14 -14 -35 -14 -45 0 -11 -7 -28 -15 -39 -8 -10 -15 -27 -15 -36 0 -10 -6 -32 -14 -50 -7 -18 -21 -60 -31 -93 -10 -33 -23 -80 -31 -105 -12 -44 -31 -116 -59 -230 -130 -528 -166 -1325 -89 -1945 30 -241 83 -522 121 -643 7 -23 13 -50 13 -59 0 -16 11 -51 56 -183 14 -41 29 -88 34 -105 5 -16 18 -55 30 -85 12 -30 25 -66 30 -80 33 -103 236 -517 284 -580 6 -8 20 -31 30 -50 37 -69 171 -267 260 -385 330 -439 736 -812 1246 -1142 47 -30 94 -59 105 -64 11 -5 34 -18 50 -29 17 -11 39 -24 50 -30 11 -6 47 -26 80 -45 33 -20 83 -47 110 -61 28 -13 57 -29 65 -34 8 -5 22 -11 30 -14 15 -6 25 -11 65 -34 11 -7 27 -15 35 -18 8 -3 22 -10 30 -15 8 -5 22 -12 30 -15 8 -3 38 -16 65 -29 28 -12 106 -46 175 -75 69 -28 139 -57 155 -65 17 -7 39 -15 50 -18 11 -3 45 -15 75 -27 107 -41 135 -51 165 -60 17 -4 46 -14 65 -21 19 -6 51 -17 70 -24 19 -7 62 -20 95 -30 33 -10 80 -23 105 -31 67 -20 137 -40 210 -58 36 -10 88 -23 115 -30 28 -8 86 -21 130 -31 44 -9 105 -23 135 -30 150 -35 197 -45 218 -45 13 0 51 -7 85 -14 96 -23 307 -56 567 -90 1127 -147 2538 -124 3590 60 236 41 498 95 584 120 26 8 55 14 64 14 8 0 38 6 66 14 28 8 80 22 116 31 36 9 88 23 115 30 28 8 77 21 110 30 64 17 146 41 210 60 22 7 67 21 100 30 33 10 76 23 95 30 19 7 51 18 70 24 19 7 49 16 65 21 33 9 85 27 125 43 14 5 39 13 55 17 17 5 55 18 85 30 30 12 87 32 125 45 39 13 95 33 125 45 106 40 135 51 161 59 14 5 34 13 45 19 10 5 37 17 59 25 22 8 78 31 125 50 l85 36 3 1190 c1 808 -1 1191 -8 1191 -9 0 -51 -23 -105 -58 -11 -6 -26 -14 -32 -17 -29 -11 -41 -17 -98 -50 -241 -135 -718 -369 -940 -459 -49 -21 -103 -44 -118 -52 -16 -8 -35 -14 -44 -14 -8 0 -27 -6 -41 -14 -50 -25 -103 -46 -118 -46 -9 0 -28 -6 -42 -14 -30 -15 -81 -33 -127 -46 -39 -11 -91 -29 -133 -46 -18 -8 -41 -14 -52 -14 -11 0 -34 -6 -52 -14 -18 -8 -60 -22 -93 -31 -33 -9 -84 -23 -112 -31 -81 -22 -153 -41 -208 -54 -126 -30 -183 -43 -225 -50 -25 -5 -63 -13 -85 -18 -22 -6 -83 -18 -135 -27 -52 -9 -129 -23 -170 -30 -731 -134 -1862 -159 -2655 -59 -356 44 -731 122 -1010 209 -22 6 -67 20 -100 29 -33 10 -73 24 -88 32 -16 8 -35 14 -42 14 -8 0 -29 6 -47 14 -18 8 -53 22 -78 31 -25 10 -58 23 -75 31 -16 7 -50 22 -75 32 -84 37 -235 112 -295 147 -33 19 -69 39 -80 45 -164 88 -433 304 -588 473 -134 146 -295 359 -330 437 -4 8 -17 31 -28 50 -51 83 -116 223 -166 355 -8 22 -21 55 -29 73 -8 18 -14 42 -14 53 0 11 -5 30 -12 42 -6 12 -15 38 -19 57 -3 19 -11 55 -17 80 -82 343 -109 720 -77 1070 21 235 37 329 90 535 14 55 30 116 35 135 9 39 26 89 46 138 8 18 14 40 14 50 0 9 7 26 15 36 8 11 15 26 15 34 0 12 110 241 143 297 140 240 468 600 663 730 28 19 56 41 63 49 8 9 18 16 23 16 6 0 27 13 47 28 20 16 43 32 51 35 8 4 29 16 45 27 17 11 39 24 50 30 11 6 36 20 55 32 93 56 418 208 510 238 14 5 50 18 80 30 185 71 460 151 675 195 44 9 102 21 130 27 27 6 77 14 110 18 33 4 87 12 120 18 74 13 274 36 505 59 256 26 1302 25 1565 0 428 -41 664 -76 1035 -153 70 -15 110 -24 270 -60 113 -26 304 -78 435 -119 22 -6 67 -20 100 -30 33 -9 71 -22 85 -27 14 -6 39 -14 55 -18 17 -5 55 -18 85 -30 30 -12 69 -25 85 -30 17 -4 41 -12 55 -18 14 -5 45 -18 70 -27 25 -10 59 -23 75 -30 17 -8 66 -28 110 -45 105 -42 158 -65 280 -120 39 -17 77 -36 85 -41 8 -5 22 -12 30 -15 8 -3 22 -10 30 -15 8 -5 22 -12 30 -15 17 -6 384 -189 415 -206 11 -6 27 -15 35 -20 8 -4 22 -11 30 -14 8 -3 22 -9 30 -14 8 -5 49 -27 90 -48 41 -22 97 -51 124 -66 27 -14 55 -26 63 -26 11 0 13 194 11 1187 l-3 1187 -70 29 c-38 16 -83 35 -100 42 -16 7 -49 20 -72 29 -109 41 -129 49 -146 57 -9 5 -50 20 -90 33 -39 14 -97 34 -127 46 -114 44 -136 52 -165 60 -35 10 -353 116 -405 135 -32 11 -61 20 -202 61 -27 8 -69 20 -95 28 -27 7 -77 21 -113 30 -36 10 -87 23 -115 31 -101 27 -141 36 -180 44 -22 4 -56 12 -75 19 -19 6 -71 18 -115 27 -44 9 -105 23 -135 30 -78 19 -166 36 -230 45 -30 4 -75 12 -100 18 -69 16 -387 62 -595 86 -500 58 -717 69 -1410 72 -346 1 -637 1 -645 -1z M2455 12708 c-3 -7 -4 -488 -3 -1068 l3 -1055 2066 -3 c1719 -2 2068 -4 2078 -16 8 -9 12 -1033 13 -3832 l3 -3819 1320 0 1320 0 3 3819 c1 2799 5 3823 13 3832 10 12 359 14 2078 16 l2066 3 0 1065 0 1065 -5478 3 c-4377 2 -5479 0 -5482 -10z M25285 12708 c-3 -7 -4 -2213 -3 -4903 l3 -4890 1320 0 1320 0 0 4900 0 4900 -1318 3 c-1049 2 -1319 0 -1322 -10z M29395 12708 c-3 -7 -4 -488 -3 -1068 l3 -1055 2070 -5 2070 -5 5 -3830 5 -3830 1320 0 1320 0 3 3819 c1 2799 5 3823 13 3832 10 12 359 14 2083 16 l2071 3 0 1065 0 1065 -5478 3 c-4377 2 -5479 0 -5482 -10z M41820 7815 l0 -4905 1320 0 1320 0 0 4905 0 4905 -1320 0 -1320 0 0 -4905z"/></g></svg></a>
+  <span class="serie">Cotizador 3D</span>
+</header>
+
+<main class="wrap">
+  <div class="intro">
+    <h1>Cotiza tu pieza impresa en 3D</h1>
+    <p class="entradilla">Sube tu archivo STEP o STL, elige material y acabado, y obtén el precio al momento. Tu archivo se analiza en tu navegador: no se envía a ningún servidor hasta que tú lo decidas.</p>
+  </div>
+
+  <div class="layout">
+    <section aria-labelledby="t-paso1">
+      <div class="bloque">
+        <div class="paso"><span class="chip">1</span><h2 id="t-paso1">Sube tu modelo</h2></div>
+        <div class="hoja" id="hoja">
+          <div class="vacia" id="vacia">
+            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="butt" aria-hidden="true"><path d="M16 3 4 9.5v13L16 29l12-6.5v-13L16 3Z"/><path d="M4 9.5 16 16l12-6.5M16 16v13"/></svg>
+            <p class="grande">Arrastra aquí tus archivos</p>
+            <p>Puedes subir varias piezas a la vez; cada una se cotiza con sus propios parámetros.</p>
+            <button class="btn" type="button" id="btn-elegir">Elegir archivos</button>
+            <span class="nota-formatos">.STEP · .STP · .STL — hasta 100 MB por archivo</span>
+          </div>
+          <canvas id="visor" aria-label="Vista 3D de la pieza seleccionada"></canvas>
+          <div class="cotas" id="cotas" aria-live="polite"></div>
+          <div class="modo-cara" id="modo-cara" hidden><span>Haz clic en la cara que irá sobre la cama</span><button type="button" class="btn sec chico" id="or-cancelar">Cancelar</button></div>
+          <div class="visor-ayuda" id="visor-ayuda">Arrastra para girar · rueda para acercar</div>
+          <div class="cargando" id="cargando" role="status"><div><span id="cargando-txt">Leyendo archivo…</span><div class="barra"></div></div></div>
+        </div>
+        <input type="file" id="archivo" accept=".stl,.stp,.step" multiple hidden>
+
+        <div class="acciones-piezas" id="acciones-piezas" hidden>
+          <span class="sub" id="resumen-piezas"></span>
+          <button class="btn sec" type="button" id="btn-agregar">Agregar otra pieza</button>
+        </div>
+        <div class="tabla-scroll" id="tabla-wrap" hidden>
+          <table>
+            <thead><tr><th>Pieza</th><th>Material</th><th class="num">Cant.</th><th class="num col-pu">Precio unitario</th><th class="num">Importe</th><th><span class="sr" style="position:absolute;left:-9999px">Quitar</span></th></tr></thead>
+            <tbody id="tabla"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <aside class="panel" aria-label="Parámetros y cotización">
+      <div class="bloque">
+        <div class="paso"><span class="chip">2</span><h2>Define los parámetros</h2></div>
+        <div class="caja" id="params">
+          <div class="sin-pieza" id="sin-pieza">Sube un modelo para elegir material, calidad y acabado.</div>
+          <form id="form-params" hidden onsubmit="return false">
+            <div class="caja-cab"><strong id="p-nombre"></strong><span class="sub" id="p-dims"></span></div>
+            <div class="caja-cuerpo">
+              <div class="campo">
+                <span class="lbl">Tecnología</span>
+                <div class="seg" id="p-tec"></div>
+              </div>
+              <div class="campo">
+                <label for="p-material">Material</label>
+                <select id="p-material"></select>
+                <p class="ayuda" id="p-material-desc"></p>
+              </div>
+              <div class="campo">
+                <span class="lbl">Color <span class="val" id="p-color-nombre"></span></span>
+                <div class="colores" id="p-colores"></div>
+              </div>
+              <div class="campo">
+                <span class="lbl">Calidad</span>
+                <div class="seg" id="p-calidad"></div>
+              </div>
+              <div class="campo" id="campo-relleno">
+                <label for="p-relleno">Relleno <span class="val" id="p-relleno-val"></span></label>
+                <input type="range" id="p-relleno" min="10" max="100" step="5">
+                <p class="ayuda">15–25 % para prototipos; 40 % o más para piezas que trabajan.</p>
+              </div>
+              <div class="campo">
+                <label for="p-acabado">Acabado</label>
+                <select id="p-acabado"></select>
+              </div>
+              <div class="campo" id="campo-orient">
+                <span class="lbl">Orientación <span class="val" id="p-orient-modo"></span></span>
+                <div class="acc-orient">
+                  <button type="button" class="btn sec chico" id="or-cara">Elegir cara base</button>
+                  <button type="button" class="btn sec chico" id="or-auto">Sugerir la mejor</button>
+                </div>
+                <p class="ayuda" id="p-orient-razon"></p>
+                <button type="button" class="aplicar" id="or-original">Usar la orientación del archivo</button>
+              </div>
+              <div class="fila2">
+                <div class="campo">
+                  <label for="p-unidad">Unidades del archivo</label>
+                  <select id="p-unidad"><option value="1">mm</option><option value="10">cm</option><option value="25.4">pulgadas</option></select>
+                </div>
+                <div class="campo">
+                  <label for="p-escala">Escala (%)</label>
+                  <input type="number" id="p-escala" min="1" max="1000" step="1" class="mono">
+                </div>
+              </div>
+              <div class="campo">
+                <label for="p-cant">Cantidad</label>
+                <div class="stepper">
+                  <button type="button" id="cant-menos" aria-label="Quitar una">−</button>
+                  <input type="number" id="p-cant" min="1" max="10000" step="1" inputmode="numeric">
+                  <button type="button" id="cant-mas" aria-label="Agregar una">+</button>
+                </div>
+                <p class="ayuda" id="p-desc-cant"></p>
+              </div>
+              <button type="button" class="aplicar" id="aplicar-todas" hidden>Usar estos parámetros en todas las piezas</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="bloque">
+        <div class="paso"><span class="chip">3</span><h2>Revisa tu cotización</h2></div>
+        <div class="caja">
+          <div class="cajetin">
+            <div class="caj-fila"><div><span class="caj-etq">Documento</span><span class="caj-val">Cotización</span></div><div><span class="caj-etq">Folio</span><span class="caj-val" id="folio">Al guardar o enviar</span></div></div>
+            <div class="caj-fila"><div><span class="caj-etq">Fecha</span><span class="caj-val" id="fecha"></span></div><div><span class="caj-etq">Vigencia</span><span class="caj-val" id="vigencia"></span></div></div>
+          </div>
+          <div class="entrega">
+            <div class="campo">
+              <span class="lbl">Entrega</span>
+              <div class="seg" id="q-entrega"></div>
+            </div>
+          </div>
+          <div class="desglose" id="desglose"></div>
+          <div id="avisos"></div>
+          <div class="total">
+            <span class="caj-etq">Total con IVA</span>
+            <span class="monto" id="total">$0.00</span>
+            <span class="det" id="total-det">Sube un modelo para calcular</span>
+          </div>
+          <div class="botones">
+            <button class="btn" type="button" id="btn-solicitar" disabled>Solicitar producción</button>
+            <button class="btn sec" type="button" id="btn-pdf" disabled>Guardar cotización en PDF</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<footer class="pie">
+  <div><h3>Cómo calculamos el precio</h3><p>Medimos el volumen y la superficie reales de tu modelo, estimamos material, soportes y horas de máquina, y aplicamos las tarifas vigentes. El precio final se confirma al revisar el archivo.</p></div>
+  <div><h3>Tus archivos</h3><p>El análisis ocurre en tu navegador. Solo compartes el modelo cuando envías la solicitud de producción.</p></div>
+  <div><h3>¿Pieza grande o requisitos especiales?</h3><p>Si tu modelo no cabe en nuestras máquinas o necesitas un material que no aparece, envía la solicitud y lo cotizamos por separado.</p></div>
+</footer>
+
+<dialog id="dlg" aria-labelledby="dlg-t">
+  <div class="dlg-cab"><h2 id="dlg-t">Solicitar producción</h2><button type="button" class="quitar" id="dlg-cerrar" aria-label="Cerrar">✕</button></div>
+
+  <form id="dlg-form" novalidate onsubmit="return false">
+    <div class="dlg-cuerpo">
+      <p class="ayuda" style="font-size:14px;color:var(--tinta-2)">Enviaremos tu cotización y tus archivos a nuestro equipo. Revisamos el modelo y te confirmamos precio y fecha de entrega.</p>
+      <div class="fila2">
+        <div class="campo"><label for="s-nombre">Nombre</label><input type="text" id="s-nombre" required autocomplete="name"></div>
+        <div class="campo"><label for="s-empresa">Empresa (opcional)</label><input type="text" id="s-empresa" autocomplete="organization"></div>
+      </div>
+      <div class="fila2">
+        <div class="campo"><label for="s-correo">Correo</label><input type="email" id="s-correo" required autocomplete="email"></div>
+        <div class="campo"><label for="s-tel">Teléfono / WhatsApp</label><input type="tel" id="s-tel" autocomplete="tel"></div>
+      </div>
+      <div class="campo"><label for="s-notas">Notas para el equipo (opcional)</label><textarea id="s-notas" placeholder="Tolerancias, uso de la pieza, esfuerzos que soporta, fecha límite…"></textarea></div>
+      <div class="trampa" aria-hidden="true"><label for="s-sitio">Sitio web</label><input type="text" id="s-sitio" tabindex="-1" autocomplete="off"></div>
+      <p class="ayuda" id="s-archivos"></p>
+      <div id="s-error"></div>
+    </div>
+    <div class="dlg-pie">
+      <button class="btn sec" type="button" id="s-copiar">Copiar solicitud</button>
+      <button class="btn sec" type="button" id="s-correo-btn" hidden>Enviar por correo</button>
+      <button class="btn" type="button" id="s-enviar">Enviar solicitud</button>
+    </div>
+  </form>
+
+  <div id="dlg-progreso" hidden>
+    <div class="dlg-cuerpo">
+      <p style="margin:0;font-weight:600">Enviando tu solicitud…</p>
+      <ol class="pasos-envio" id="pasos-envio"></ol>
+      <p class="ayuda">No cierres esta ventana hasta que termine.</p>
+    </div>
+  </div>
+
+  <div id="dlg-exito" hidden>
+    <div class="dlg-cuerpo">
+      <div class="exito-folio"><span class="caj-etq">Folio de tu solicitud</span><span class="mono" id="ex-folio"></span></div>
+      <p style="margin:0" id="ex-texto"></p>
+      <p class="ayuda" id="ex-omitidos"></p>
+    </div>
+    <div class="dlg-pie">
+      <button class="btn sec" type="button" id="ex-pdf">Guardar comprobante en PDF</button>
+      <a class="btn sec" id="ex-whatsapp" target="_blank" rel="noopener" hidden>Avisar por WhatsApp</a>
+      <button class="btn" type="button" id="ex-cerrar">Listo</button>
+    </div>
+  </div>
+</dialog>
+
+<div id="impresion"></div>
+
+<script src="occt-import-js.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =====================================================================
+   CONFIGURACIÓN DE TARIFAS — ajusta estos valores a los costos de Tritic
+   Todos los importes en MXN, sin IVA.
+   ===================================================================== */
+const CONFIG = {
+  moneda: "MXN",
+  iva: 0.16,
+  cargoPreparacion: 100,        // por pedido: revisión de archivo y preparación de máquina
+  pedidoMinimo: 240,            // subtotal mínimo antes de IVA
+  vigenciaDias: 15,
+  desperdicio: 0.05,            // purga, faldón, pruebas
+  // URL de la aplicación web de Google Apps Script (ver GUIA-INSTALACION.md). Vacía = modo sin envío.
+  backend: { url: "https://script.google.com/macros/s/AKfycbwM8Z3yiVOoJJb2cIanXjc4twey_hBXdAJ3wFikWJeAzb2t9mQqozeCjkQ8AvjhwezP/exec", maxArchivoMB: 30 },
+  // WhatsApp de Tritic con lada país, sin + ni espacios (p. ej. "526141234567"). Correo solo para el modo sin envío.
+  contacto: { email: "", whatsapp: "526145516027" },
+  wasmUrl: "occt-import-js.wasm",
+
+  tecnologias: {
+    fdm: {
+      nombre: "Filamento", corto: "FDM",
+      volumen: [300, 300, 300],          // área útil de impresión (mm)
+      paredes: 1.2,                       // espesor de perímetros (mm)
+      anguloSoporte: 45,
+      calidades: [
+        { id: "borrador", nombre: "Borrador", capa: 0.28, flujo: 13 },  // flujo efectivo mm³/s
+        { id: "estandar", nombre: "Estándar", capa: 0.20, flujo: 9 },
+        { id: "fino",     nombre: "Fino",     capa: 0.12, flujo: 5 }
+      ],
+      segundosPorCapa: 3, calentamiento: 300
+    },
+    sla: {
+      nombre: "Resina", corto: "SLA",
+      volumen: [145, 145, 175],
+      anguloSoporte: 30,
+      calidades: [
+        { id: "borrador", nombre: "Borrador", capa: 0.10 },
+        { id: "estandar", nombre: "Estándar", capa: 0.05 },
+        { id: "fino",     nombre: "Fino",     capa: 0.025 }
+      ],
+      segundosPorCapa: 9, preparacion: 600, ocupacionPlaca: 0.6
+    }
+  },
+
+  materiales: [
+    { id: "pla",   tec: "fdm", nombre: "PLA",            densidad: 1.24, precioKg: 450,  tarifaHora: 55, desc: "Prototipos, maquetas y piezas de exhibición. Fácil de imprimir, buen detalle.", colores: ["blanco","negro","gris","azul","rojo"] },
+    { id: "petg",  tec: "fdm", nombre: "PETG",           densidad: 1.27, precioKg: 550,  tarifaHora: 60, desc: "Piezas funcionales: resistente al impacto y a químicos ligeros, hasta 70 °C.", colores: ["negro","blanco","transparente"] },
+    { id: "abs",   tec: "fdm", nombre: "ABS",            densidad: 1.04, precioKg: 550,  tarifaHora: 65, desc: "Carcasas y piezas de ingeniería; soporta hasta 90 °C y se puede lijar y pegar.", colores: ["negro","blanco","gris"] },
+    { id: "asa",   tec: "fdm", nombre: "ASA",            densidad: 1.07, precioKg: 700,  tarifaHora: 65, desc: "Como ABS, con resistencia a rayos UV. Ideal para uso en exterior.", colores: ["negro","blanco"] },
+    { id: "tpu",   tec: "fdm", nombre: "TPU 95A",        densidad: 1.21, precioKg: 900,  tarifaHora: 75, desc: "Flexible tipo hule: juntas, topes, fundas y agarres.", colores: ["negro","transparente"] },
+    { id: "pacf",  tec: "fdm", nombre: "Nylon con fibra de carbono (PA-CF)", densidad: 1.15, precioKg: 1800, tarifaHora: 90, desc: "Alta rigidez y estabilidad térmica para herramentales, jigs y piezas industriales.", colores: ["negro"] },
+    { id: "rstd",  tec: "sla", nombre: "Resina estándar", densidad: 1.15, precioKg: 1400, tarifaHora: 80, desc: "Máximo detalle y superficie lisa: joyería, dental, figuras y prototipos visuales.", colores: ["gris","blanco","negro"] },
+    { id: "rtgh",  tec: "sla", nombre: "Resina tenaz (tipo ABS)", densidad: 1.18, precioKg: 2400, tarifaHora: 85, desc: "Detalle de resina con mejor resistencia al impacto para ensambles a presión.", colores: ["gris","negro"] }
+  ],
+
+  colores: {
+    blanco: { nombre: "Blanco", hex: "#EEF1F3" }, negro: { nombre: "Negro", hex: "#23282C" },
+    gris: { nombre: "Gris", hex: "#8A969E" }, azul: { nombre: "Azul", hex: "#1D5F8A" },
+    rojo: { nombre: "Rojo", hex: "#B3261E" }, transparente: { nombre: "Transparente", hex: "#CFE3EA" }
+  },
+
+  acabados: [
+    { id: "estandar", nombre: "Estándar — retiro de soportes", porCm2: 0 },
+    { id: "lijado",   nombre: "Lijado de superficies visibles", porCm2: 0.5 },
+    { id: "primer",   nombre: "Lijado + primer para pintar",    porCm2: 1.1 }
+  ],
+
+  descuentosCantidad: [ { desde: 1, pct: 0 }, { desde: 5, pct: 0.05 }, { desde: 10, pct: 0.10 }, { desde: 25, pct: 0.15 }, { desde: 50, pct: 0.20 } ],
+
+  entregas: [
+    { id: "estandar", nombre: "Estándar", plazo: "5–7 días hábiles", factor: 1 },
+    { id: "prioritaria", nombre: "Prioritaria", plazo: "48–72 h", factor: 1.35 }
+  ]
+};
+</script>
+<script>
+// ===== Motor geométrico (sin dependencias) =====
+function parseSTL(buffer) {
+  const dv = new DataView(buffer);
+  const isBinary = (() => {
+    if (buffer.byteLength < 84) return false;
+    const n = dv.getUint32(80, true);
+    if (84 + n * 50 === buffer.byteLength) return true;
+    const head = new TextDecoder().decode(new Uint8Array(buffer, 0, Math.min(512, buffer.byteLength)));
+    return !/^\s*solid[\s\S]*facet/i.test(head);
+  })();
+  if (isBinary) {
+    const n = dv.getUint32(80, true);
+    if (84 + n * 50 > buffer.byteLength) throw new Error("El archivo STL está incompleto o dañado.");
+    const pos = new Float32Array(n * 9);
+    let o = 84;
+    for (let i = 0; i < n; i++) {
+      o += 12;
+      for (let j = 0; j < 9; j++) { pos[i * 9 + j] = dv.getFloat32(o, true); o += 4; }
+      o += 2;
+    }
+    return pos;
+  }
+  const text = new TextDecoder().decode(buffer);
+  const re = /vertex\s+([-+\d.eE]+)\s+([-+\d.eE]+)\s+([-+\d.eE]+)/g;
+  const arr = []; let m;
+  while ((m = re.exec(text))) arr.push(+m[1], +m[2], +m[3]);
+  if (arr.length < 9) throw new Error("No se encontraron triángulos en el archivo STL.");
+  return new Float32Array(arr.slice(0, arr.length - (arr.length % 9)));
+}
+
+// Convierte mallas de occt-import-js en un arreglo de triángulos no indexado
+function occtToTriangles(result) {
+  if (!result || !result.success) throw new Error("No se pudo leer el archivo STEP. Verifica que sea un sólido válido.");
+  let total = 0;
+  for (const m of result.meshes) total += m.index ? m.index.array.length : m.attributes.position.array.length / 3;
+  const out = new Float32Array(total * 3);
+  let k = 0;
+  for (const m of result.meshes) {
+    const p = m.attributes.position.array;
+    if (m.index) {
+      const idx = m.index.array;
+      for (let i = 0; i < idx.length; i++) { const v = idx[i] * 3; out[k++] = p[v]; out[k++] = p[v + 1]; out[k++] = p[v + 2]; }
+    } else { out.set(p, k); k += p.length; }
+  }
+  if (!total) throw new Error("El archivo STEP no contiene geometría sólida.");
+  return out;
+}
+
+// Volumen (tetraedros con signo), área, caja envolvente
+function meshStats(pos) {
+  let vol = 0, area = 0;
+  let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+  for (let i = 0; i < pos.length; i += 9) {
+    const ax = pos[i], ay = pos[i + 1], az = pos[i + 2];
+    const bx = pos[i + 3], by = pos[i + 4], bz = pos[i + 5];
+    const cx = pos[i + 6], cy = pos[i + 7], cz = pos[i + 8];
+    vol += (ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx)) / 6;
+    const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az;
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    area += Math.sqrt(nx * nx + ny * ny + nz * nz) / 2;
+    if (ax < minX) minX = ax; if (bx < minX) minX = bx; if (cx < minX) minX = cx;
+    if (ay < minY) minY = ay; if (by < minY) minY = by; if (cy < minY) minY = cy;
+    if (az < minZ) minZ = az; if (bz < minZ) minZ = bz; if (cz < minZ) minZ = cz;
+    if (ax > maxX) maxX = ax; if (bx > maxX) maxX = bx; if (cx > maxX) maxX = cx;
+    if (ay > maxY) maxY = ay; if (by > maxY) maxY = by; if (cy > maxY) maxY = cy;
+    if (az > maxZ) maxZ = az; if (bz > maxZ) maxZ = bz; if (cz > maxZ) maxZ = cz;
+  }
+  // Integral de voladizos (área proyectada × altura) para estimar soportes
+  let ovFdm = 0, ovSla = 0;
+  for (let i = 0; i < pos.length; i += 9) {
+    const ax = pos[i], ay = pos[i + 1], az = pos[i + 2];
+    const ux = pos[i + 3] - ax, uy = pos[i + 4] - ay, uz = pos[i + 5] - az;
+    const vx = pos[i + 6] - ax, vy = pos[i + 7] - ay, vz = pos[i + 8] - az;
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+    if (!len) continue;
+    const cz = nz / len;
+    if (cz >= -0.5) continue;
+    const h = (az + pos[i + 5] + pos[i + 8]) / 3 - minZ;
+    if (h < 0.3) continue;
+    const proj = Math.abs(nz) / 2 * h;
+    ovSla += proj;
+    if (cz < -0.7071) ovFdm += proj;
+  }
+  return {
+    volume: Math.abs(vol), area, triangles: pos.length / 9, ovFdm, ovSla,
+    size: [maxX - minX, maxY - minY, maxZ - minZ],
+    min: [minX, minY, minZ], max: [maxX, maxY, maxZ]
+  };
+}
+
+
+// ===== Orientación =====
+// Agrupa normales por dirección para encontrar caras planas grandes
+function candidatosOrientacion(pos, areaTotal) {
+  const mapa = new Map();
+  for (let i = 0; i < pos.length; i += 9) {
+    const ax = pos[i], ay = pos[i + 1], az = pos[i + 2];
+    const ux = pos[i + 3] - ax, uy = pos[i + 4] - ay, uz = pos[i + 5] - az;
+    const vx = pos[i + 6] - ax, vy = pos[i + 7] - ay, vz = pos[i + 8] - az;
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+    if (!len) continue;
+    const a = len / 2, x = nx / len, y = ny / len, z = nz / len;
+    const k = Math.round(x * 120) + "," + Math.round(y * 120) + "," + Math.round(z * 120);
+    let c = mapa.get(k);
+    if (!c) { c = { sx: 0, sy: 0, sz: 0, area: 0 }; mapa.set(k, c); }
+    c.sx += x * a; c.sy += y * a; c.sz += z * a; c.area += a;
+  }
+  const grupos = [...mapa.values()].filter((c) => c.area >= areaTotal * 0.004).sort((a, b) => b.area - a.area).slice(0, 12);
+  const cands = grupos.map((c) => { const l = Math.hypot(c.sx, c.sy, c.sz) || 1; return [c.sx / l, c.sy / l, c.sz / l]; });
+  for (const d of [[0, 0, -1], [0, 0, 1], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0]]) cands.push(d);
+  const unicos = [];
+  for (const d of cands) if (!unicos.some((u) => u[0] * d[0] + u[1] * d[1] + u[2] * d[2] > 0.9994)) unicos.push(d);
+  return unicos;
+}
+
+// Matriz de rotación (fila mayor, 3×3) que lleva la normal d hacia -Z (cara sobre la cama)
+function rotacionBase(d) {
+  const [ax, ay, az] = d;
+  const c = -az; // a · (0,0,-1)
+  if (c > 0.999999) return [1, 0, 0, 0, 1, 0, 0, 0, 1];
+  if (c < -0.999999) return [1, 0, 0, 0, -1, 0, 0, 0, -1];
+  // v = a × b, b = (0,0,-1)
+  const vx = -ay, vy = ax, vz = 0;
+  const f = 1 / (1 + c);
+  return [
+    1 + f * (-(vy * vy + vz * vz)), -vz + f * (vx * vy), vy + f * (vx * vz),
+    vz + f * (vx * vy), 1 + f * (-(vx * vx + vz * vz)), -vx + f * (vy * vz),
+    -vy + f * (vx * vz), vx + f * (vy * vz), 1 + f * (-(vx * vx + vy * vy))
+  ];
+}
+
+// Medidas dependientes de la orientación: caja, voladizos y área de contacto con la cama
+function statsOrientacion(pos, R, c) {
+  const [r0, r1, r2, r3, r4, r5, r6, r7, r8] = R;
+  const cx = c[0], cy = c[1], cz = c[2];
+  let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+  for (let i = 0; i < pos.length; i += 3) {
+    const x = pos[i] - cx, y = pos[i + 1] - cy, z = pos[i + 2] - cz;
+    const X = r0 * x + r1 * y + r2 * z, Y = r3 * x + r4 * y + r5 * z, Z = r6 * x + r7 * y + r8 * z;
+    if (X < minX) minX = X; if (X > maxX) maxX = X;
+    if (Y < minY) minY = Y; if (Y > maxY) maxY = Y;
+    if (Z < minZ) minZ = Z; if (Z > maxZ) maxZ = Z;
+  }
+  const tol = Math.max(0.05, (maxZ - minZ) * 0.0005);
+  let ovFdm = 0, ovSla = 0, contacto = 0;
+  const zr = new Float64Array(3);
+  for (let i = 0; i < pos.length; i += 9) {
+    for (let k = 0; k < 3; k++) {
+      const j = i + k * 3;
+      zr[k] = r6 * (pos[j] - cx) + r7 * (pos[j + 1] - cy) + r8 * (pos[j + 2] - cz);
+    }
+    const ax = pos[i], ay = pos[i + 1], az = pos[i + 2];
+    const ux = pos[i + 3] - ax, uy = pos[i + 4] - ay, uz = pos[i + 5] - az;
+    const vx = pos[i + 6] - ax, vy = pos[i + 7] - ay, vz = pos[i + 8] - az;
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+    if (!len) continue;
+    const NZ = (r6 * nx + r7 * ny + r8 * nz) / len; // componente Z de la normal rotada
+    if (NZ >= -0.5) continue;
+    const proj = -NZ * len / 2;
+    const h = (zr[0] + zr[1] + zr[2]) / 3 - minZ;
+    if (NZ < -0.9995 && zr[0] - minZ < tol && zr[1] - minZ < tol && zr[2] - minZ < tol) { contacto += proj; continue; }
+    if (h < 0.3) continue;
+    ovSla += proj * h;
+    if (NZ < -0.7071) ovFdm += proj * h;
+  }
+  return { size: [maxX - minX, maxY - minY, maxZ - minZ], min: [minX, minY, minZ], max: [maxX, maxY, maxZ], ovFdm, ovSla, contacto };
+}
+
+// Triángulos coplanares con uno dado (para resaltar la cara que el usuario señala)
+function caraCoplanar(pos, fi) {
+  const i = fi * 9;
+  const ax = pos[i], ay = pos[i + 1], az = pos[i + 2];
+  const ux = pos[i + 3] - ax, uy = pos[i + 4] - ay, uz = pos[i + 5] - az;
+  const vx = pos[i + 6] - ax, vy = pos[i + 7] - ay, vz = pos[i + 8] - az;
+  let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+  const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+  nx /= len; ny /= len; nz /= len;
+  const d0 = nx * ax + ny * ay + nz * az;
+  const out = [];
+  let area = 0;
+  for (let t = 0; t < pos.length; t += 9) {
+    const px = pos[t], py = pos[t + 1], pz = pos[t + 2];
+    const Ux = pos[t + 3] - px, Uy = pos[t + 4] - py, Uz = pos[t + 5] - pz;
+    const Vx = pos[t + 6] - px, Vy = pos[t + 7] - py, Vz = pos[t + 8] - pz;
+    const mx = Uy * Vz - Uz * Vy, my = Uz * Vx - Ux * Vz, mz = Ux * Vy - Uy * Vx;
+    const l = Math.sqrt(mx * mx + my * my + mz * mz);
+    if (!l) continue;
+    if ((mx * nx + my * ny + mz * nz) / l < 0.9995) continue;
+    if (Math.abs(nx * px + ny * py + nz * pz - d0) > 0.05) continue;
+    out.push(t / 9); area += l / 2;
+  }
+  return { normal: [nx, ny, nz], tris: out, area };
+}
+
+
+</script>
+<script>
+(() => {
+"use strict";
+const $ = (id) => document.getElementById(id);
+const fmt = new Intl.NumberFormat("es-MX", { style: "currency", currency: CONFIG.moneda });
+const num = (v, d = 1) => new Intl.NumberFormat("es-MX", { minimumFractionDigits: d, maximumFractionDigits: d }).format(v);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const matById = (id) => CONFIG.materiales.find((m) => m.id === id);
+const nextFrame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 30)));
+const pad = (n) => String(n).padStart(2, "0");
+const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const IDENT = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+const hayBackend = () => /^https:\/\//.test(CONFIG.backend.url || "");
+
+// ---------- Estado ----------
+const hoy = new Date();
+const vig = new Date(hoy.getTime() + CONFIG.vigenciaDias * 864e5);
+const state = { parts: [], sel: null, entrega: CONFIG.entregas[0].id, seq: 0, folio: null, token: null, firmaFolio: null, cliente: null };
+$("fecha").textContent = iso(hoy);
+$("vigencia").textContent = iso(vig);
+
+// ---------- Cálculo ----------
+function descuentoPara(cant) { let pct = 0; for (const d of CONFIG.descuentosCantidad) if (cant >= d.desde) pct = d.pct; return pct; }
+function escalaDe(p) { return p.unidad * p.escala / 100; }
+function cabe(size, vol) {
+  // La orientación (qué cara va abajo) ya está fijada; solo se permite girar sobre Z.
+  return (size[0] <= vol[0] && size[1] <= vol[1] && size[2] <= vol[2]) || (size[1] <= vol[0] && size[0] <= vol[1] && size[2] <= vol[2]);
+}
+function calcular(p, ori = p.ori) {
+  const tec = CONFIG.tecnologias[p.tec];
+  const mat = matById(p.material);
+  const cal = tec.calidades.find((c) => c.id === p.calidad) || tec.calidades[1];
+  const s = escalaDe(p);
+  const V = p.geo.volume * s ** 3, A = p.geo.area * s * s;
+  const size = ori.size.map((v) => v * s);
+  const cabeEn = cabe(size, tec.volumen);
+  let impreso, soporte, horasUnidad, placas = null;
+  if (p.tec === "fdm") {
+    const shell = Math.min(V, A * tec.paredes);
+    impreso = shell + (V - shell) * p.relleno / 100;
+    soporte = ori.ovFdm * s ** 3 * 0.15;
+    const seg = impreso / cal.flujo + soporte / (cal.flujo * 1.5) + (size[2] / cal.capa) * tec.segundosPorCapa + tec.calentamiento;
+    horasUnidad = seg / 3600;
+  } else {
+    impreso = V;
+    soporte = ori.ovSla * s ** 3 * 0.08 + V * 0.05;
+    const segPlaca = (size[2] / cal.capa) * tec.segundosPorCapa + tec.preparacion;
+    const porPlaca = Math.max(1, Math.floor(tec.volumen[0] * tec.volumen[1] * tec.ocupacionPlaca / Math.max(1, size[0] * size[1])));
+    placas = Math.ceil(p.cant / porPlaca);
+    horasUnidad = placas * segPlaca / 3600 / p.cant;
+  }
+  const gramos = (impreso + soporte) * (1 + CONFIG.desperdicio) * mat.densidad / 1000;
+  const gramosSoporte = soporte * mat.densidad / 1000;
+  const acabado = CONFIG.acabados.find((a) => a.id === p.acabado) || CONFIG.acabados[0];
+  const cMaterial = gramos / 1000 * mat.precioKg;
+  const cMaquina = horasUnidad * mat.tarifaHora;
+  const cAcabado = (A / 100) * acabado.porCm2;
+  const base = cMaterial + cMaquina + cAcabado;
+  const desc = descuentoPara(p.cant);
+  const entrega = CONFIG.entregas.find((e) => e.id === state.entrega);
+  const unitario = base * (1 - desc) * entrega.factor;
+  const avisos = [];
+  if (!cabeEn) avisos.push({ tipo: "err", txt: `En esta orientación no cabe en el área de impresión (${tec.volumen.join(" × ")} mm). Prueba otra cara base; si no, la cotizamos por separado; puede dividirse en partes.` });
+  if (Math.max(...size) < 2) avisos.push({ tipo: "warn", txt: "Mide menos de 2 mm. Revisa las unidades del archivo." });
+  const minPared = p.tec === "fdm" ? 0.8 : 0.4;
+  if (Math.min(...size) < minPared) avisos.push({ tipo: "warn", txt: `Tiene un espesor menor a ${minPared} mm; podría no imprimirse bien.` });
+  return { V, A, size, gramos, gramosSoporte, horasUnidad, placas, cal, mat, tec, cMaterial, cMaquina, cAcabado, base, desc, unitario, importe: unitario * p.cant, cotizable: cabeEn, avisos, contacto: ori.contacto * s * s };
+}
+function calcularPedido() {
+  const entrega = CONFIG.entregas.find((e) => e.id === state.entrega);
+  const t = { material: 0, maquina: 0, acabado: 0, horas: 0, descuento: 0, urgencia: 0, piezas: 0, lineas: [], manuales: 0 };
+  for (const p of state.parts) {
+    const r = calcular(p);
+    t.lineas.push({ p, r });
+    if (!r.cotizable) { t.manuales++; continue; }
+    const bruto = r.base * p.cant;
+    t.material += r.cMaterial * p.cant; t.maquina += r.cMaquina * p.cant; t.acabado += r.cAcabado * p.cant;
+    t.horas += r.horasUnidad * p.cant; t.piezas += p.cant;
+    t.descuento += bruto * r.desc;
+    t.urgencia += bruto * (1 - r.desc) * (entrega.factor - 1);
+  }
+  const hay = t.piezas > 0;
+  t.preparacion = hay ? CONFIG.cargoPreparacion : 0;
+  t.prev = t.material + t.maquina + t.acabado - t.descuento + t.urgencia + t.preparacion;
+  t.ajusteMin = hay && t.prev < CONFIG.pedidoMinimo ? CONFIG.pedidoMinimo - t.prev : 0;
+  t.subtotal = t.prev + t.ajusteMin;
+  t.iva = t.subtotal * CONFIG.iva;
+  t.total = t.subtotal + t.iva;
+  t.entrega = entrega;
+  return t;
+}
+
+// ---------- Orientación ----------
+function evaluar(p, d) {
+  const R = d ? rotacionBase(d) : IDENT;
+  return { R, d, ...statsOrientacion(p.tris, R, p.geo.centro) };
+}
+function puntaje(p, ori) {
+  const r = calcular(p, ori);
+  let costo = r.cMaterial + r.cMaquina;
+  const huella = r.size[0] * r.size[1];
+  // Poca superficie de apoyo: se despega o necesita balsa → se penaliza
+  if (r.contacto < Math.max(25, huella * 0.03)) costo *= 1.3;
+  if (!r.cotizable) costo += 1e9;
+  return costo + r.size[2] * 1e-4;
+}
+function autoOrientar(p) {
+  if (!p.cands) p.cands = candidatosOrientacion(p.tris, p.geo.area);
+  let mejor = null, mejorP = Infinity;
+  for (const d of p.cands) {
+    const o = evaluar(p, d);
+    const sc = puntaje(p, o);
+    if (sc < mejorP) { mejorP = sc; mejor = o; }
+  }
+  const original = evaluar(p, null);
+  const pOrig = puntaje(p, original);
+  mejor.modo = "auto";
+  mejor.ahorro = pOrig < 1e8 && mejorP < pOrig ? 1 - mejorP / pOrig : 0;
+  p.ori = mejor;
+}
+function orientarManual(p, normal) { p.ori = { ...evaluar(p, normal), modo: "manual" }; }
+function orientarOriginal(p) { p.ori = { ...evaluar(p, null), modo: "original" }; }
+function razonOrientacion(p) {
+  const r = calcular(p);
+  const partes = [];
+  if (r.contacto >= 1) partes.push(`Apoyada sobre una cara plana de ${num(r.contacto, 0)} mm².`);
+  else partes.push("No tiene una cara plana sobre la cama; se imprime sobre soportes.");
+  partes.push(r.gramosSoporte < 0.3 ? "No necesita soportes." : `Soportes estimados: ${num(r.gramosSoporte, 1)} g.`);
+  if (p.ori.modo === "auto" && p.ori.ahorro > 0.03) partes.push(`${Math.round(p.ori.ahorro * 100)} % más económica que como viene en el archivo.`);
+  return partes.join(" ");
+}
+
+// ---------- Carga de archivos ----------
+const input = $("archivo");
+$("btn-elegir").addEventListener("click", () => input.click());
+$("btn-agregar").addEventListener("click", () => input.click());
+input.addEventListener("change", () => { manejarArchivos([...input.files]); input.value = ""; });
+const hoja = $("hoja");
+["dragenter", "dragover"].forEach((ev) => hoja.addEventListener(ev, (e) => { e.preventDefault(); hoja.classList.add("arrastre"); }));
+["dragleave", "drop"].forEach((ev) => hoja.addEventListener(ev, (e) => { e.preventDefault(); hoja.classList.remove("arrastre"); }));
+hoja.addEventListener("drop", (e) => manejarArchivos([...e.dataTransfer.files]));
+const msg = document.createElement("div");
+hoja.insertAdjacentElement("afterend", msg);
+const mostrarError = (txt) => { msg.innerHTML = `<div class="aviso err" style="margin:12px 0 0"><b>NO SE PUDO LEER</b><p>${esc(txt)}</p></div>`; };
+
+let occtPromise = null;
+function cargarOcct() {
+  if (!occtPromise) {
+    occtPromise = (async () => {
+      const el = $("occt-wasm");
+      let wasm;
+      if (el && el.textContent.trim()) {
+        const bin = atob(el.textContent.trim());
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+        wasm = new Uint8Array(await new Response(stream).arrayBuffer());
+      } else {
+        const res = await fetch(CONFIG.wasmUrl);
+        if (!res.ok) throw new Error("No se pudo cargar el lector de STEP.");
+        wasm = new Uint8Array(await res.arrayBuffer());
+      }
+      return occtimportjs({ wasmBinary: wasm });
+    })();
+    occtPromise.catch(() => { occtPromise = null; });
+  }
+  return occtPromise;
+}
+
+async function manejarArchivos(files) {
+  msg.innerHTML = "";
+  const cargando = $("cargando"), txt = $("cargando-txt");
+  for (const f of files) {
+    const ext = (f.name.split(".").pop() || "").toLowerCase();
+    if (!["stl", "stp", "step"].includes(ext)) { mostrarError(`${f.name}: formato no admitido. Usa .STEP, .STP o .STL.`); continue; }
+    if (f.size > 100 * 1024 * 1024) { mostrarError(`${f.name} pesa más de 100 MB. Exporta una versión más ligera o envíanos el archivo directamente.`); continue; }
+    cargando.classList.add("activo");
+    txt.textContent = ext === "stl" ? `Leyendo ${f.name}…` : `Convirtiendo ${f.name} (la primera vez tarda unos segundos)…`;
+    await nextFrame();
+    try {
+      const buf = await f.arrayBuffer();
+      let tris;
+      if (ext === "stl") tris = parseSTL(buf);
+      else {
+        const occt = await cargarOcct();
+        txt.textContent = `Analizando geometría de ${f.name}…`;
+        await nextFrame();
+        const res = occt.ReadStepFile(new Uint8Array(buf), { linearUnit: "millimeter", linearDeflectionType: "bounding_box_ratio", linearDeflection: 0.001, angularDeflection: 0.5 });
+        tris = occtToTriangles(res);
+      }
+      const st = meshStats(tris);
+      if (!(st.volume > 0)) throw new Error("El modelo no tiene volumen cerrado. Verifica que sea un sólido y no solo superficies.");
+      const prev = state.parts.find((x) => x.id === state.sel);
+      const p = {
+        id: ++state.seq, nombre: f.name, ext, file: f, tris,
+        geo: { volume: st.volume, area: st.area, triangles: st.triangles, centro: [0, 1, 2].map((i) => (st.min[i] + st.max[i]) / 2) },
+        tec: prev ? prev.tec : "fdm", material: prev ? prev.material : "pla", color: prev ? prev.color : "negro",
+        calidad: prev ? prev.calidad : "estandar", relleno: prev ? prev.relleno : 20, acabado: prev ? prev.acabado : "estandar",
+        unidad: 1, escala: 100, cant: 1
+      };
+      txt.textContent = `Buscando la mejor orientación para ${f.name}…`;
+      await nextFrame();
+      autoOrientar(p);
+      state.parts.push(p);
+      seleccionar(p.id);
+    } catch (e) {
+      console.error(e);
+      mostrarError(`${f.name}: ${e && e.message ? e.message : "el archivo está dañado o no es un sólido válido."}`);
+    }
+  }
+  cargando.classList.remove("activo");
+  render();
+}
+
+// ---------- Panel de parámetros ----------
+function seg(contenedor, nombre, opciones, valor, onChange) {
+  contenedor.innerHTML = opciones.map((o) =>
+    `<label><input type="radio" name="${nombre}" value="${esc(o.id)}" ${o.id === valor ? "checked" : ""}><span>${esc(o.nombre)}${o.sub ? `<small>${esc(o.sub)}</small>` : ""}</span></label>`).join("");
+  contenedor.querySelectorAll("input").forEach((i) => i.addEventListener("change", () => onChange(i.value)));
+}
+const parteSel = () => state.parts.find((x) => x.id === state.sel);
+function seleccionar(id) { Visor.elegirCara(false); state.sel = id; renderParams(); render(); Visor.mostrar(parteSel()); }
+
+function renderParams() {
+  const p = parteSel();
+  $("sin-pieza").hidden = !!p;
+  $("form-params").hidden = !p;
+  if (!p) return;
+  const tec = CONFIG.tecnologias[p.tec];
+  $("p-nombre").textContent = p.nombre;
+  seg($("p-tec"), "tec", Object.entries(CONFIG.tecnologias).map(([id, t]) => ({ id, nombre: t.nombre, sub: t.corto })), p.tec, (v) => {
+    p.tec = v;
+    if (matById(p.material).tec !== v) p.material = CONFIG.materiales.find((x) => x.tec === v).id;
+    const nm = matById(p.material);
+    if (!nm.colores.includes(p.color)) p.color = nm.colores[0];
+    if (p.ori.modo === "auto") autoOrientar(p);
+    renderParams(); actualizar("orientar");
+  });
+  const sel = $("p-material");
+  sel.innerHTML = CONFIG.materiales.filter((m) => m.tec === p.tec).map((m) => `<option value="${m.id}" ${m.id === p.material ? "selected" : ""}>${esc(m.nombre)}</option>`).join("");
+  sel.onchange = () => { p.material = sel.value; const m = matById(p.material); if (!m.colores.includes(p.color)) p.color = m.colores[0]; renderParams(); actualizar(); };
+  const mat = matById(p.material);
+  $("p-material-desc").textContent = mat.desc + (p.tec === "sla" ? " Incluye lavado y curado UV." : "");
+  $("p-colores").innerHTML = mat.colores.map((c) => {
+    const co = CONFIG.colores[c];
+    return `<label title="${esc(co.nombre)}"><input type="radio" name="color" value="${c}" ${c === p.color ? "checked" : ""} aria-label="${esc(co.nombre)}"><span style="background:${co.hex}"></span></label>`;
+  }).join("");
+  $("p-colores").querySelectorAll("input").forEach((i) => i.addEventListener("change", () => { p.color = i.value; $("p-color-nombre").textContent = CONFIG.colores[p.color].nombre; actualizar(); }));
+  $("p-color-nombre").textContent = CONFIG.colores[p.color].nombre;
+  seg($("p-calidad"), "calidad", tec.calidades.map((c) => ({ id: c.id, nombre: c.nombre, sub: `${c.capa} mm` })), p.calidad, (v) => { p.calidad = v; actualizar(); });
+  $("campo-relleno").hidden = p.tec !== "fdm";
+  const rel = $("p-relleno");
+  rel.value = p.relleno; $("p-relleno-val").textContent = `${p.relleno} %`;
+  rel.oninput = () => { p.relleno = +rel.value; $("p-relleno-val").textContent = `${p.relleno} %`; actualizar(); };
+  const ac = $("p-acabado");
+  ac.innerHTML = CONFIG.acabados.map((a) => `<option value="${a.id}" ${a.id === p.acabado ? "selected" : ""}>${esc(a.nombre)}</option>`).join("");
+  ac.onchange = () => { p.acabado = ac.value; actualizar(); };
+  const un = $("p-unidad"); un.value = String(p.unidad);
+  un.onchange = () => { p.unidad = +un.value; actualizar("encuadrar"); };
+  const es = $("p-escala"); es.value = p.escala;
+  es.onchange = () => { const v = Math.min(1000, Math.max(1, +es.value || 100)); p.escala = v; es.value = v; actualizar("encuadrar"); };
+  const ca = $("p-cant"); ca.value = p.cant;
+  const setCant = (v) => { p.cant = Math.min(10000, Math.max(1, Math.round(v) || 1)); ca.value = p.cant; actualizar(); };
+  ca.onchange = () => setCant(+ca.value);
+  $("cant-menos").onclick = () => setCant(p.cant - 1);
+  $("cant-mas").onclick = () => setCant(p.cant + 1);
+  $("aplicar-todas").hidden = state.parts.length < 2;
+  renderDims();
+}
+$("aplicar-todas").addEventListener("click", () => {
+  const p = parteSel(); if (!p) return;
+  for (const o of state.parts) {
+    const cambioTec = o.tec !== p.tec;
+    Object.assign(o, { tec: p.tec, material: p.material, color: p.color, calidad: p.calidad, relleno: p.relleno, acabado: p.acabado });
+    if (cambioTec && o.ori.modo === "auto") autoOrientar(o);
+  }
+  actualizar("orientar");
+  const b = $("aplicar-todas"); const t = b.textContent; b.textContent = "Parámetros aplicados a todas las piezas"; setTimeout(() => (b.textContent = t), 1800);
+});
+
+// Botones de orientación
+$("or-auto").addEventListener("click", () => { const p = parteSel(); if (!p) return; Visor.elegirCara(false); autoOrientar(p); actualizar("orientar"); });
+$("or-original").addEventListener("click", () => { const p = parteSel(); if (!p) return; Visor.elegirCara(false); orientarOriginal(p); actualizar("orientar"); });
+$("or-cara").addEventListener("click", () => Visor.elegirCara(!Visor.eligiendo()));
+$("or-cancelar").addEventListener("click", () => Visor.elegirCara(false));
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && Visor.eligiendo()) Visor.elegirCara(false); });
+
+function renderDims() {
+  const p = parteSel(); if (!p) return;
+  const r = calcular(p);
+  $("p-dims").textContent = r.size.map((v) => num(v, 1)).join(" × ") + " mm";
+  const siguiente = CONFIG.descuentosCantidad.find((d) => d.desde > p.cant);
+  $("p-desc-cant").textContent = r.desc > 0
+    ? `Descuento por volumen aplicado: ${Math.round(r.desc * 100)} %.` + (siguiente ? ` Desde ${siguiente.desde} piezas: ${Math.round(siguiente.pct * 100)} %.` : "")
+    : siguiente ? `Desde ${siguiente.desde} piezas obtienes ${Math.round(siguiente.pct * 100)} % de descuento.` : "";
+  $("p-orient-modo").textContent = { auto: "Sugerida", manual: "Elegida por ti", original: "Del archivo" }[p.ori.modo];
+  $("p-orient-razon").textContent = razonOrientacion(p);
+  $("or-original").hidden = p.ori.modo === "original";
+  const h = r.horasUnidad;
+  $("cotas").innerHTML = [
+    ["X", `${num(r.size[0], 2)} mm`], ["Y", `${num(r.size[1], 2)} mm`], ["Z", `${num(r.size[2], 2)} mm`],
+    ["Volumen", `${num(r.V / 1000, 2)} cm³`], ["Peso est.", `${num(r.gramos, 1)} g`],
+    ["Tiempo", r.placas ? `${fmtHoras(h * p.cant)} (${r.placas} ${r.placas === 1 ? "placa" : "placas"})` : `${fmtHoras(h)} c/u`]
+  ].map(([k, v]) => `<span>${k}</span><span>${v}</span>`).join("");
+}
+function fmtHoras(h) { const m = Math.max(1, Math.round(h * 60)); return `${Math.floor(m / 60)} h ${pad(m % 60)} min`; }
+function actualizar(modo) {
+  renderDims(); render();
+  const p = parteSel();
+  if (p) Visor.apariencia(p, modo);
+}
+
+// ---------- Tabla, cotización, avisos ----------
+seg($("q-entrega"), "entrega", CONFIG.entregas.map((e) => ({ id: e.id, nombre: e.nombre, sub: e.plazo })), state.entrega, (v) => { state.entrega = v; render(); });
+
+function firmaCotizacion() {
+  return JSON.stringify([state.entrega, state.parts.map((p) => [p.id, p.tec, p.material, p.color, p.calidad, p.relleno, p.acabado, p.unidad, p.escala, p.cant, p.ori.R.map((v) => v.toFixed(4))])]);
+}
+function render() {
+  const t = calcularPedido();
+  const hay = state.parts.length > 0;
+  if (state.folio && firmaCotizacion() !== state.firmaFolio) { state.folio = null; state.token = null; }
+  $("folio").textContent = state.folio || "Al guardar o enviar";
+  $("vacia").style.display = hay ? "none" : "";
+  $("acciones-piezas").hidden = !hay;
+  $("tabla-wrap").hidden = !hay;
+  $("resumen-piezas").textContent = hay ? `${state.parts.length} ${state.parts.length === 1 ? "archivo" : "archivos"} · ${t.piezas} ${t.piezas === 1 ? "pieza" : "piezas"} por imprimir` : "";
+  $("tabla").innerHTML = t.lineas.map(({ p, r }) => `
+    <tr data-id="${p.id}" class="${p.id === state.sel ? "sel" : ""}" tabindex="0" aria-selected="${p.id === state.sel}">
+      <td><span class="nombre-archivo" title="${esc(p.nombre)}">${esc(p.nombre)}</span><span class="sub">${r.size.map((v) => num(v, 1)).join(" × ")} mm</span></td>
+      <td>${esc(r.mat.nombre)}<span class="sub" style="display:block">${esc(CONFIG.colores[p.color].nombre)} · ${esc(r.cal.nombre.toLowerCase())}${p.tec === "fdm" ? ` · ${p.relleno} %` : ""}</span></td>
+      <td class="num">${p.cant}</td>
+      <td class="num col-pu">${r.cotizable ? fmt.format(r.unitario) : '<span class="etq warn">Manual</span>'}</td>
+      <td class="num">${r.cotizable ? fmt.format(r.importe) : '<span class="etq warn">Manual</span>'}</td>
+      <td><button class="quitar" data-quitar="${p.id}" aria-label="Quitar ${esc(p.nombre)}">✕</button></td>
+    </tr>`).join("");
+  $("tabla").querySelectorAll("tr").forEach((tr) => {
+    const go = () => seleccionar(+tr.dataset.id);
+    tr.addEventListener("click", (e) => { if (!e.target.closest("[data-quitar]")) go(); });
+    tr.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+  });
+  $("tabla").querySelectorAll("[data-quitar]").forEach((b) => b.addEventListener("click", () => quitar(+b.dataset.quitar)));
+
+  const filas = [];
+  if (t.piezas) {
+    filas.push(["Material", fmt.format(t.material)]);
+    filas.push([`Tiempo de máquina (${num(t.horas, 1)} h)`, fmt.format(t.maquina)]);
+    if (t.acabado > 0) filas.push(["Acabados", fmt.format(t.acabado)]);
+    if (t.descuento > 0) filas.push(["Descuento por volumen", "−" + fmt.format(t.descuento), "desc"]);
+    if (t.urgencia > 0) filas.push([`Entrega ${t.entrega.nombre.toLowerCase()}`, fmt.format(t.urgencia)]);
+    filas.push(["Preparación del pedido", fmt.format(t.preparacion)]);
+    if (t.ajusteMin > 0) filas.push(["Ajuste a pedido mínimo", fmt.format(t.ajusteMin)]);
+    filas.push([`IVA ${Math.round(CONFIG.iva * 100)} %`, fmt.format(t.iva)]);
+  }
+  $("desglose").innerHTML = filas.map(([k, v, c]) => `<div class="${c || ""}"><span>${k}</span><span>${v}</span></div>`).join("");
+
+  const av = [];
+  for (const { p, r } of t.lineas) for (const a of r.avisos) av.push({ ...a, nombre: p.nombre });
+  const errores = av.filter((a) => a.tipo === "err"), warns = av.filter((a) => a.tipo === "warn");
+  $("avisos").innerHTML =
+    (errores.length ? `<div class="aviso err"><b>COTIZACIÓN MANUAL</b>${errores.map((a) => `<p><strong>${esc(a.nombre)}:</strong> ${esc(a.txt)}</p>`).join("")}</div>` : "") +
+    (warns.length ? `<div class="aviso warn"><b>REVISA</b>${warns.map((a) => `<p><strong>${esc(a.nombre)}:</strong> ${esc(a.txt)}</p>`).join("")}</div>` : "");
+
+  $("total").textContent = fmt.format(t.total);
+  $("total-det").textContent = t.piezas
+    ? `Subtotal ${fmt.format(t.subtotal)} + IVA · entrega en ${t.entrega.plazo}`
+    : hay ? "Ninguna pieza se puede cotizar en automático" : "Sube un modelo para calcular";
+  $("btn-solicitar").disabled = !hay;
+  $("btn-pdf").disabled = !t.piezas;
+}
+function quitar(id) {
+  state.parts = state.parts.filter((x) => x.id !== id);
+  if (state.sel === id) state.sel = state.parts.length ? state.parts[state.parts.length - 1].id : null;
+  Visor.elegirCara(false);
+  renderParams(); render(); Visor.mostrar(parteSel());
+}
+
+// ---------- Datos de la cotización ----------
+const nombreAcabado = (p) => CONFIG.acabados.find((a) => a.id === p.acabado).nombre.split(" —")[0];
+const nombreOrient = (p) => ({ auto: "sugerida", manual: "cara base elegida por el cliente", original: "la del archivo" }[p.ori.modo]);
+function detalleCotizacion() {
+  const t = calcularPedido();
+  return {
+    piezas: t.piezas, subtotal: Math.round(t.subtotal * 100) / 100, iva: Math.round(t.iva * 100) / 100, total: Math.round(t.total * 100) / 100,
+    entrega: `${t.entrega.nombre} (${t.entrega.plazo})`, texto: resumenTexto(),
+    lineas: t.lineas.map(({ p, r }) => ({
+      archivo: p.nombre, tecnologia: r.tec.corto, material: r.mat.nombre, color: CONFIG.colores[p.color].nombre,
+      calidad: `${r.cal.nombre} ${r.cal.capa} mm`, relleno: p.tec === "fdm" ? `${p.relleno} %` : "—", acabado: nombreAcabado(p),
+      orientacion: nombreOrient(p), medidas: r.size.map((v) => num(v, 1)).join(" × ") + " mm", peso_g: Math.round(r.gramos * 10) / 10,
+      cantidad: p.cant, unitario: r.cotizable ? Math.round(r.unitario * 100) / 100 : null, importe: r.cotizable ? Math.round(r.importe * 100) / 100 : null
+    }))
+  };
+}
+function resumenTexto() {
+  const t = calcularPedido();
+  const c = state.cliente || {};
+  const L = [`Solicitud de producción${state.folio ? " — " + state.folio : ""}`, `Fecha: ${iso(hoy)}`, ""];
+  if (c.nombre) L.push(`Cliente: ${c.nombre}${c.empresa ? " (" + c.empresa + ")" : ""}`, `Correo: ${c.correo || "—"}  Tel.: ${c.tel || "—"}`, "");
+  L.push("Piezas:");
+  t.lineas.forEach(({ p, r }, i) => {
+    L.push(`${i + 1}. ${p.nombre} — ${r.size.map((v) => num(v, 1)).join(" × ")} mm (orientación ${nombreOrient(p)})`);
+    L.push(`   ${r.tec.corto} ${r.mat.nombre}, ${CONFIG.colores[p.color].nombre}, ${r.cal.nombre} ${r.cal.capa} mm${p.tec === "fdm" ? `, relleno ${p.relleno} %` : ""}, ${nombreAcabado(p)}`);
+    L.push(`   Cantidad ${p.cant} — ${r.cotizable ? fmt.format(r.unitario) + " c/u = " + fmt.format(r.importe) : "cotización manual"}`);
+  });
+  L.push("", `Entrega: ${t.entrega.nombre} (${t.entrega.plazo})`, `Subtotal: ${fmt.format(t.subtotal)}`, `IVA: ${fmt.format(t.iva)}`, `Total: ${fmt.format(t.total)}`);
+  if (c.notas) L.push("", `Notas: ${c.notas}`);
+  return L.join("\n");
+}
+
+// ---------- Comunicación con el servidor (Google Apps Script) ----------
+async function api(accion, datos, intentos = 2) {
+  let ultimo;
+  for (let i = 0; i < intentos; i++) {
+    try {
+      const res = await fetch(CONFIG.backend.url, { method: "POST", body: JSON.stringify({ accion, ...datos }) });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || "El servidor rechazó la solicitud.");
+      return j;
+    } catch (e) { ultimo = e; if (i < intentos - 1) await new Promise((r) => setTimeout(r, 1200)); }
+  }
+  throw ultimo;
+}
+async function asegurarFolio() {
+  if (state.folio || !hayBackend()) return state.folio;
+  const r = await api("registrar", { cotizacion: detalleCotizacion() });
+  state.folio = r.folio; state.token = r.token; state.firmaFolio = firmaCotizacion();
+  $("folio").textContent = state.folio;
+  return state.folio;
+}
+function leerArchivoB64(file) {
+  return new Promise((ok, mal) => {
+    const fr = new FileReader();
+    fr.onload = () => ok(String(fr.result).split(",")[1] || "");
+    fr.onerror = () => mal(new Error("No se pudo leer el archivo."));
+    fr.readAsDataURL(file);
+  });
+}
+
+// ---------- PDF ----------
+async function imprimir() {
+  const btn = $("btn-pdf"); const txt = btn.textContent;
+  btn.disabled = true; btn.textContent = "Generando…";
+  try { await asegurarFolio(); } catch (e) { console.warn("Sin folio:", e); }
+  btn.disabled = false; btn.textContent = txt;
+  const t = calcularPedido();
+  const logo = document.querySelector(".logo").outerHTML;
+  const c = state.cliente;
+  const folio = state.folio || "Preliminar";
+  $("impresion").innerHTML = `
+    <div class="p-cab">${logo}<span class="serie">Cotizador 3D</span></div>
+    <h1>Cotización de impresión 3D</h1>
+    <p>${state.folio ? `Folio <span class="mono">${state.folio}</span> · ` : "Cotización preliminar sin folio · "}emitida el <span class="mono">${iso(hoy)}</span> · vigente hasta <span class="mono">${iso(vig)}</span>${c && c.nombre ? `<br>Para: ${esc(c.nombre)}${c.empresa ? ", " + esc(c.empresa) : ""}` : ""}</p>
+    <table>
+      <thead><tr><th>Pieza</th><th>Material y color</th><th>Calidad</th><th>Acabado</th><th class="num">Medidas (mm)</th><th class="num">Cant.</th><th class="num">P. unitario</th><th class="num">Importe</th></tr></thead>
+      <tbody>${t.lineas.map(({ p, r }) => `<tr><td>${esc(p.nombre)}</td><td>${esc(r.mat.nombre)}, ${esc(CONFIG.colores[p.color].nombre)}</td><td>${esc(r.cal.nombre)} ${r.cal.capa} mm${p.tec === "fdm" ? ` · ${p.relleno} %` : ""}</td><td>${esc(nombreAcabado(p))}</td><td class="num">${r.size.map((v) => num(v, 1)).join(" × ")}</td><td class="num">${p.cant}</td><td class="num">${r.cotizable ? fmt.format(r.unitario) : "Manual"}</td><td class="num">${r.cotizable ? fmt.format(r.importe) : "—"}</td></tr>`).join("")}</tbody>
+    </table>
+    <div class="p-tot">
+      <div><span>Preparación del pedido</span><span class="mono">${fmt.format(t.preparacion)}</span></div>
+      ${t.ajusteMin > 0 ? `<div><span>Ajuste a pedido mínimo</span><span class="mono">${fmt.format(t.ajusteMin)}</span></div>` : ""}
+      <div><span>Subtotal</span><span class="mono">${fmt.format(t.subtotal)}</span></div>
+      <div><span>IVA ${Math.round(CONFIG.iva * 100)} %</span><span class="mono">${fmt.format(t.iva)}</span></div>
+      <div><span>Total</span><span class="mono">${fmt.format(t.total)}</span></div>
+    </div>
+    <p class="p-notas">Entrega ${t.entrega.nombre.toLowerCase()}: ${t.entrega.plazo} a partir de la confirmación del pedido. Precios en ${CONFIG.moneda}. Cotización generada automáticamente a partir del modelo digital; el precio final se confirma tras la revisión técnica del archivo.${t.manuales ? " Las piezas marcadas como «Manual» se cotizan por separado." : ""}</p>
+    <div class="p-caj">
+      <div>${logo}</div>
+      <div><span class="caj-etq">Documento</span>Cotización</div>
+      <div><span class="caj-etq">Folio</span><span class="mono">${esc(folio)}</span></div>
+      <div><span class="caj-etq">Versión</span><span class="mono">1</span></div>
+      <div><span class="caj-etq">Fecha</span><span class="mono">${iso(hoy).slice(0, 7)}</span></div>
+    </div>`;
+  window.print();
+}
+$("btn-pdf").addEventListener("click", imprimir);
+$("ex-pdf").addEventListener("click", imprimir);
+
+// ---------- Solicitud de producción ----------
+const dlg = $("dlg");
+function vistaDlg(v) { $("dlg-form").hidden = v !== "form"; $("dlg-progreso").hidden = v !== "progreso"; $("dlg-exito").hidden = v !== "exito"; }
+$("btn-solicitar").addEventListener("click", () => {
+  vistaDlg("form");
+  $("s-error").innerHTML = "";
+  const online = hayBackend();
+  $("s-enviar").hidden = !online;
+  $("s-correo-btn").hidden = online || !CONFIG.contacto.email;
+  $("s-copiar").className = online ? "btn sec" : "btn";
+  const grandes = state.parts.filter((p) => p.file.size > CONFIG.backend.maxArchivoMB * 1048576);
+  $("s-archivos").textContent = online
+    ? `Se enviarán ${state.parts.length} ${state.parts.length === 1 ? "archivo" : "archivos"} de modelo.` + (grandes.length ? ` ${grandes.map((g) => g.nombre).join(", ")} supera ${CONFIG.backend.maxArchivoMB} MB; te lo pediremos por otro medio.` : "")
+    : CONFIG.contacto.email ? "Al enviar por correo, adjunta tus archivos de modelo al mensaje." : "Copia la solicitud y envíala junto con tus archivos.";
+  if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+});
+const cerrarDlg = () => { if (!$("dlg-progreso").hidden) return; dlg.close ? dlg.close() : dlg.removeAttribute("open"); };
+$("dlg-cerrar").addEventListener("click", cerrarDlg);
+$("ex-cerrar").addEventListener("click", cerrarDlg);
+dlg.addEventListener("cancel", (e) => { if (!$("dlg-progreso").hidden) e.preventDefault(); });
+
+function leerCliente() {
+  state.cliente = Object.fromEntries(["nombre", "empresa", "correo", "tel", "notas"].map((k) => [k, $("s-" + k).value.trim()]));
+  for (const id of ["s-nombre", "s-correo"]) { const el = $(id); if (!el.checkValidity()) { el.reportValidity(); return false; } }
+  return true;
+}
+async function copiar(txt) {
+  try { await navigator.clipboard.writeText(txt); }
+  catch { const ta = document.createElement("textarea"); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); } catch {} ta.remove(); }
+}
+function errorEnvio(txt) {
+  $("s-error").innerHTML = `<div class="aviso err" style="margin:0"><b>NO SE PUDO ENVIAR</b><p>${esc(txt)} Puedes copiar la solicitud y enviárnosla por correo o WhatsApp con tus archivos.</p></div>`;
+}
+$("s-copiar").addEventListener("click", async () => {
+  if (!leerCliente()) return;
+  await copiar(resumenTexto());
+  $("s-error").innerHTML = `<div class="confirmacion activo">Solicitud copiada. Pégala en un correo o mensaje junto con tus archivos.</div>`;
+});
+$("s-correo-btn").addEventListener("click", () => {
+  if (!leerCliente()) return;
+  window.open(`mailto:${CONFIG.contacto.email}?subject=${encodeURIComponent("Solicitud de producción")}&body=${encodeURIComponent(resumenTexto())}`, "_blank");
+});
+
+$("s-enviar").addEventListener("click", async () => {
+  if (!leerCliente()) return;
+  if ($("s-sitio").value) return; // trampa para bots
+  const lista = $("pasos-envio");
+  const pasos = [{ id: "reg", txt: "Registrar solicitud" }, ...state.parts.map((p, i) => ({ id: "f" + i, txt: `Subir ${p.nombre}`, p })), { id: "fin", txt: "Notificar al equipo" }];
+  lista.innerHTML = pasos.map((s) => `<li id="pe-${s.id}"><span>${esc(s.txt)}</span><span>Pendiente</span></li>`).join("");
+  const marca = (id, estado, etiqueta) => { const li = $("pe-" + id); li.className = estado; li.lastElementChild.textContent = etiqueta; };
+  vistaDlg("progreso");
+  const omitidos = [];
+  let paso = "reg";
+  try {
+    marca("reg", "activo", "En curso");
+    const r = await api("crear", { folio: state.folio, token: state.token, cliente: state.cliente, cotizacion: detalleCotizacion() });
+    state.folio = r.folio; state.token = r.token; state.firmaFolio = firmaCotizacion();
+    $("folio").textContent = state.folio;
+    marca("reg", "hecho", state.folio);
+    for (let i = 0; i < state.parts.length; i++) {
+      const p = state.parts[i]; paso = "f" + i;
+      if (p.file.size > CONFIG.backend.maxArchivoMB * 1048576) { omitidos.push(p.nombre); marca(paso, "error", "Muy grande"); continue; }
+      marca(paso, "activo", "Subiendo");
+      const b64 = await leerArchivoB64(p.file);
+      await api("archivo", { folio: state.folio, token: state.token, nombre: p.nombre, b64 });
+      marca(paso, "hecho", "Listo");
+    }
+    paso = "fin";
+    marca("fin", "activo", "En curso");
+    await api("finalizar", { folio: state.folio, token: state.token, omitidos });
+    marca("fin", "hecho", "Listo");
+  } catch (e) {
+    console.error(e);
+    marca(paso, "error", "Error");
+    vistaDlg("form");
+    errorEnvio(e && e.message ? e.message : "Revisa tu conexión e inténtalo de nuevo.");
+    return;
+  }
+  const t = calcularPedido();
+  $("ex-folio").textContent = state.folio;
+  $("ex-texto").textContent = `Recibimos tu solicitud y tus archivos. Te enviamos una copia a ${state.cliente.correo}; nuestro equipo revisará el modelo y te confirmará precio y fecha de entrega.`;
+  $("ex-omitidos").textContent = omitidos.length ? `No se subieron por tamaño: ${omitidos.join(", ")}. Te contactaremos para recibirlos.` : "";
+  const wa = CONFIG.contacto.whatsapp;
+  const exWa = $("ex-whatsapp");
+  exWa.hidden = !wa;
+  if (wa) exWa.href = `https://wa.me/${wa}?text=${encodeURIComponent(`Hola, soy ${state.cliente.nombre}. Acabo de enviar la solicitud ${state.folio} desde el cotizador 3D (${fmt.format(t.total)} con IVA).`)}`;
+  vistaDlg("exito");
+});
+
+// ---------- Visor 3D ----------
+const Visor = (() => {
+  const canvas = $("visor");
+  let renderer, scene, camera, mesh, edges, bed, resalte, actual = null;
+  let theta = -Math.PI / 4, phi = Math.PI / 3.2, radio = 200, target = null, pendiente = false;
+  let modoCara = false, anim = null, caraHover = -1;
+  const reducido = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const colorVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || "#D5DDE1";
+
+  function init() {
+    if (renderer) return true;
+    if (typeof THREE === "undefined") return false;
+    try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true }); } catch { return false; }
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.setClearColor(0x000000, 0);
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(35, 1, 0.1, 20000);
+    camera.up.set(0, 0, 1);
+    target = new THREE.Vector3();
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x9fb1bc, 0.75));
+    const d1 = new THREE.DirectionalLight(0xffffff, 0.65); d1.position.set(1, -1.5, 2); scene.add(d1);
+    const d2 = new THREE.DirectionalLight(0xffffff, 0.25); d2.position.set(-1.5, 1, 0.5); scene.add(d2);
+    new ResizeObserver(tam).observe(hoja);
+    const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+    const cara = (e) => {
+      if (!mesh) return null;
+      const rc = canvas.getBoundingClientRect();
+      ptr.set(((e.clientX - rc.left) / rc.width) * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1);
+      ray.setFromCamera(ptr, camera);
+      const hit = ray.intersectObject(mesh, false)[0];
+      return hit ? hit.faceIndex : null;
+    };
+    let arr = null, mov = 0;
+    canvas.addEventListener("pointerdown", (e) => { arr = { x: e.clientX, y: e.clientY }; mov = 0; canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener("pointermove", (e) => {
+      if (arr) {
+        mov += Math.abs(e.clientX - arr.x) + Math.abs(e.clientY - arr.y);
+        theta -= (e.clientX - arr.x) * 0.008; phi = Math.min(Math.PI - 0.05, Math.max(0.05, phi - (e.clientY - arr.y) * 0.008));
+        arr = { x: e.clientX, y: e.clientY }; pedir();
+      } else if (modoCara && actual && actual.geo.triangles <= 400000) {
+        const f = cara(e);
+        if (f !== caraHover) { caraHover = f; resaltar(f); }
+      }
+    });
+    canvas.addEventListener("pointerup", (e) => {
+      const clic = arr && mov < 6;
+      arr = null;
+      if (clic && modoCara && actual) {
+        const f = cara(e);
+        if (f == null) return;
+        const c = caraCoplanar(actual.tris, f);
+        orientarManual(actual, c.normal);
+        elegirCara(false);
+        actualizar("orientar");
+      }
+    });
+    canvas.addEventListener("pointercancel", () => (arr = null));
+    canvas.addEventListener("pointerleave", () => { if (modoCara) { caraHover = -1; resaltar(null); } });
+    canvas.addEventListener("wheel", (e) => { e.preventDefault(); radio *= Math.exp(e.deltaY * 0.001); radio = Math.max(5, Math.min(8000, radio)); pedir(); }, { passive: false });
+    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (actual) { crearCama(actual); pedir(); } });
+    tam();
+    return true;
+  }
+  function tam() {
+    const w = hoja.clientWidth, h = hoja.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / Math.max(1, h); camera.updateProjectionMatrix(); pedir();
+  }
+  function pedir() { if (!pendiente) { pendiente = true; requestAnimationFrame(dibujar); } }
+  function dibujar(now) {
+    pendiente = false;
+    if (anim && mesh) {
+      const k = Math.min(1, (now - anim.t0) / anim.dur);
+      const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      mesh.quaternion.copy(anim.q0).slerp(anim.q1, e);
+      mesh.position.lerpVectors(anim.p0, anim.p1, e);
+      if (k < 1) pedir(); else anim = null;
+    }
+    camera.position.set(target.x + radio * Math.sin(phi) * Math.cos(theta), target.y + radio * Math.sin(phi) * Math.sin(theta), target.z + radio * Math.cos(phi));
+    camera.lookAt(target);
+    renderer.render(scene, camera);
+  }
+  function crearCama(p) {
+    if (bed) { scene.remove(bed); bed.geometry.dispose(); }
+    const [bx, by] = CONFIG.tecnologias[p.tec].volumen;
+    const pts = [], x0 = -bx / 2, y0 = -by / 2;
+    for (let x = 0; x <= bx + 0.01; x += 10) pts.push(x0 + x, y0, 0, x0 + x, -y0, 0);
+    for (let y = 0; y <= by + 0.01; y += 10) pts.push(x0, y0 + y, 0, -x0, y0 + y, 0);
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+    bed = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: new THREE.Color(colorVar("--azul-200")), transparent: true, opacity: 0.55 }));
+    scene.add(bed);
+  }
+  function resaltar(f) {
+    if (resalte) { mesh.remove(resalte); resalte.geometry.dispose(); resalte = null; }
+    if (f != null && f >= 0 && actual) {
+      const c = caraCoplanar(actual.tris, f);
+      const [cx, cy, cz] = actual.geo.centro;
+      const pos = new Float32Array(c.tris.length * 9);
+      c.tris.forEach((t, k) => { for (let j = 0; j < 9; j++) pos[k * 9 + j] = actual.tris[t * 9 + j] - (j % 3 === 0 ? cx : j % 3 === 1 ? cy : cz); });
+      const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+      const base = new THREE.Color(CONFIG.colores[actual.color].hex);
+      const oscuro = 0.2126 * base.r + 0.7152 * base.g + 0.0722 * base.b < 0.3;
+      resalte = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: oscuro ? 0x5b9bbf : 0x0a6e9c, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthTest: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+      mesh.add(resalte);
+    }
+    pedir();
+  }
+  function mostrar(p) {
+    const on = !!p;
+    canvas.classList.toggle("activo", on);
+    $("cotas").classList.toggle("activo", on);
+    $("visor-ayuda").classList.toggle("activo", on);
+    if (!p) { actual = null; return; }
+    if (!init()) { canvas.classList.remove("activo"); $("visor-ayuda").classList.remove("activo"); return; }
+    if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); mesh = edges = resalte = null; }
+    const [cx, cy, cz] = p.geo.centro;
+    const pos = new Float32Array(p.tris.length);
+    for (let i = 0; i < pos.length; i += 3) { pos[i] = p.tris[i] - cx; pos[i + 1] = p.tris[i + 1] - cy; pos[i + 2] = p.tris[i + 2] - cz; }
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.computeVertexNormals();
+    mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ roughness: 0.62, metalness: 0, flatShading: true, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
+    scene.add(mesh);
+    if (p.geo.triangles < 150000) {
+      edges = new THREE.LineSegments(new THREE.EdgesGeometry(g, 28), new THREE.LineBasicMaterial({ transparent: true, opacity: 0.5 }));
+      mesh.add(edges);
+    }
+    actual = p;
+    anim = null;
+    apariencia(p, "inicial");
+  }
+  function transformacion(p) {
+    const R = p.ori.R, s = escalaDe(p);
+    const m = new THREE.Matrix4().set(R[0], R[1], R[2], 0, R[3], R[4], R[5], 0, R[6], R[7], R[8], 0, 0, 0, 0, 1);
+    const q = new THREE.Quaternion().setFromRotationMatrix(m);
+    const mn = p.ori.min, mx = p.ori.max;
+    const pos = new THREE.Vector3(-s * (mn[0] + mx[0]) / 2, -s * (mn[1] + mx[1]) / 2, -s * mn[2]);
+    return { q, pos, s };
+  }
+  function apariencia(p, modo) {
+    if (!mesh || actual !== p) return;
+    const hex = CONFIG.colores[p.color].hex;
+    mesh.material.color.set(hex);
+    const c = new THREE.Color(hex); const lum = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+    if (edges) edges.material.color.set(lum < 0.3 ? "#8FA4B0" : "#04202F");
+    const { q, pos, s } = transformacion(p);
+    mesh.scale.setScalar(s);
+    if (modo === "orientar" && !reducido && !mesh.quaternion.equals(q)) {
+      anim = { q0: mesh.quaternion.clone(), q1: q, p0: mesh.position.clone(), p1: pos, t0: performance.now(), dur: 450 };
+    } else { mesh.quaternion.copy(q); mesh.position.copy(pos); }
+    crearCama(p);
+    if (modo === "inicial" || modo === "encuadrar" || modo === "orientar") {
+      const size = p.ori.size.map((v) => v * s);
+      target.set(0, 0, size[2] / 2);
+      const d = Math.max(...size);
+      radio = (d * 3 + 10) / Math.min(1, Math.max(0.55, camera.aspect));
+      if (modo === "inicial") { theta = -Math.PI / 4; phi = Math.PI / 3.2; }
+    }
+    pedir();
+  }
+  function elegirCara(on) {
+    modoCara = !!on && !!actual;
+    canvas.classList.toggle("eligiendo", modoCara);
+    $("modo-cara").hidden = !modoCara;
+    $("or-cara").classList.toggle("activo", modoCara);
+    $("or-cara").setAttribute("aria-pressed", String(modoCara));
+    if (!modoCara && mesh) { caraHover = -1; resaltar(null); }
+    if (modoCara) {
+      const rc = hoja.getBoundingClientRect();
+      if (rc.top < 0 || rc.bottom > innerHeight) hoja.scrollIntoView({ block: "center", behavior: reducido ? "auto" : "smooth" });
+    }
+  }
+  return { mostrar, apariencia, elegirCara, eligiendo: () => modoCara };
+})();
+
+render();
+})();
+
+</script>
+</body>
+</html>
