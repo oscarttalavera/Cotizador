@@ -229,6 +229,8 @@ dialog::backdrop{ background:rgba(4,32,47,.55); }
   #impresion h1{ font-size:24pt; line-height:28pt; margin:0 0 6pt; color:#00476A; }
   #impresion table{ font-size:9pt; margin:12pt 0; }
   #impresion th, #impresion td{ padding:4pt 6pt; }
+  #impresion .p-pieza{ display:flex; align-items:center; gap:6pt; }
+  #impresion .p-pieza img{ width:16mm; height:16mm; object-fit:contain; flex:none; border:.5pt solid #D5DDE1; }
   #impresion .p-caj{ display:grid; grid-template-columns:30mm 1fr 1.5fr .6fr .9fr; border:1pt solid #5A6973; margin-top:18pt; }
   #impresion .p-caj div{ padding:4pt 6pt; border-left:.5pt solid #D5DDE1; }
   #impresion .p-caj div:first-child{ border-left:0; display:grid; place-items:center; }
@@ -454,6 +456,7 @@ const CONFIG = {
   pedidoMinimo: 240,            // subtotal mínimo antes de IVA
   vigenciaDias: 15,
   desperdicio: 0.05,            // purga, faldón, pruebas
+  horasProduccionDia: 20,       // horas de impresión efectivas por máquina y día hábil (incluye turnos sin atención)
   // URL de la aplicación web de Google Apps Script (ver GUIA-INSTALACION.md). Vacía = modo sin envío.
   backend: { url: "https://script.google.com/macros/s/AKfycbwM8Z3yiVOoJJb2cIanXjc4twey_hBXdAJ3wFikWJeAzb2t9mQqozeCjkQ8AvjhwezP/exec", maxArchivoMB: 30 },
   // WhatsApp de Tritic con lada país, sin + ni espacios (p. ej. "526141234567"). Correo solo para el modo sin envío.
@@ -464,6 +467,7 @@ const CONFIG = {
     fdm: {
       nombre: "Filamento", corto: "FDM",
       volumen: [300, 300, 300],          // área útil de impresión (mm)
+      impresoras: 4,                      // máquinas disponibles; limita qué tan rápido se puede producir un pedido grande
       paredes: 1.2,                       // espesor de perímetros (mm)
       anguloSoporte: 45,
       calidades: [
@@ -476,6 +480,7 @@ const CONFIG = {
     sla: {
       nombre: "Resina", corto: "SLA",
       volumen: [145, 145, 175],
+      impresoras: 1,
       anguloSoporte: 30,
       calidades: [
         { id: "borrador", nombre: "Borrador", capa: 0.10 },
@@ -512,8 +517,9 @@ const CONFIG = {
   descuentosCantidad: [ { desde: 1, pct: 0 }, { desde: 5, pct: 0.05 }, { desde: 10, pct: 0.10 }, { desde: 25, pct: 0.15 }, { desde: 50, pct: 0.20 } ],
 
   entregas: [
-    { id: "estandar", nombre: "Estándar", plazo: "5–7 días hábiles", factor: 1 },
-    { id: "prioritaria", nombre: "Prioritaria", plazo: "48–72 h", factor: 1.35 }
+    // diasMin/diasMax: plazo base en días hábiles; margen: días extra tras terminar de imprimir (retiro de soportes, empaque)
+    { id: "estandar", nombre: "Estándar", plazo: "5–7 días hábiles", factor: 1, diasMin: 5, diasMax: 7, margen: 2 },
+    { id: "prioritaria", nombre: "Prioritaria", plazo: "48–72 h", factor: 1.35, diasMin: 2, diasMax: 3, margen: 1 }
   ]
 };
 </script>
@@ -785,6 +791,27 @@ function calcular(p, ori = p.ori) {
   if (Math.min(...size) < minPared) avisos.push({ tipo: "warn", txt: `Tiene un espesor menor a ${minPared} mm; podría no imprimirse bien.` });
   return { V, A, size, gramos, gramosSoporte, horasUnidad, placas, cal, mat, tec, cMaterial, cMaquina, cAcabado, base, desc, unitario, importe: unitario * p.cant, cotizable: cabeEn, avisos, contacto: ori.contacto * s * s };
 }
+// Tiempo mínimo para imprimir todas las unidades con las máquinas disponibles (reparto voraz: la más larga a la máquina más libre)
+function horasProduccion(lineas) {
+  let max = 0;
+  for (const tecId of Object.keys(CONFIG.tecnologias)) {
+    const n = Math.max(1, CONFIG.tecnologias[tecId].impresoras || 1);
+    const trabajos = [];
+    for (const { p, r } of lineas) if (p.tec === tecId && r.cotizable) for (let i = 0; i < p.cant; i++) trabajos.push(r.horasUnidad);
+    trabajos.sort((a, b) => b - a);
+    const carga = new Array(n).fill(0);
+    for (const h of trabajos) { let k = 0; for (let i = 1; i < n; i++) if (carga[i] < carga[k]) k = i; carga[k] += h; }
+    max = Math.max(max, ...carga);
+  }
+  return max;
+}
+function plazoEntrega(e, t) {
+  const dias = Math.ceil(t.horasProd / CONFIG.horasProduccionDia);
+  const min = Math.max(e.diasMin, dias + e.margen);
+  const max = Math.max(e.diasMax, min + (e.diasMax - e.diasMin));
+  const ajustado = t.piezas > 0 && min > e.diasMin;
+  return { min, max, ajustado, texto: ajustado ? `${min}–${max} días hábiles` : e.plazo };
+}
 function calcularPedido() {
   const entrega = CONFIG.entregas.find((e) => e.id === state.entrega);
   const t = { material: 0, maquina: 0, acabado: 0, horas: 0, descuento: 0, urgencia: 0, piezas: 0, lineas: [], manuales: 0 };
@@ -805,7 +832,9 @@ function calcularPedido() {
   t.subtotal = t.prev + t.ajusteMin;
   t.iva = t.subtotal * CONFIG.iva;
   t.total = t.subtotal + t.iva;
+  t.horasProd = horasProduccion(t.lineas);
   t.entrega = entrega;
+  t.plazo = plazoEntrega(entrega, t);
   return t;
 }
 
@@ -1080,9 +1109,19 @@ function render() {
     (errores.length ? `<div class="aviso err"><b>COTIZACIÓN MANUAL</b>${errores.map((a) => `<p><strong>${esc(a.nombre)}:</strong> ${esc(a.txt)}</p>`).join("")}</div>` : "") +
     (warns.length ? `<div class="aviso warn"><b>REVISA</b>${warns.map((a) => `<p><strong>${esc(a.nombre)}:</strong> ${esc(a.txt)}</p>`).join("")}</div>` : "");
 
+  document.querySelectorAll("#q-entrega label").forEach((lb) => {
+    const e = CONFIG.entregas.find((x) => x.id === lb.querySelector("input").value);
+    const sm = lb.querySelector("small");
+    if (e && sm) sm.textContent = plazoEntrega(e, t).texto;
+  });
+  if (t.plazo.ajustado) {
+    const hp = Math.round(t.horasProd);
+    $("avisos").innerHTML += `<div class="aviso warn"><b>PLAZO AJUSTADO</b><p>Por la cantidad de piezas (≈ ${hp} h de impresión por máquina), la entrega ${t.entrega.nombre.toLowerCase()} se estima en ${t.plazo.texto} en lugar de ${t.entrega.plazo}.</p></div>`;
+  }
+
   $("total").textContent = fmt.format(t.total);
   $("total-det").textContent = t.piezas
-    ? `Subtotal ${fmt.format(t.subtotal)} + IVA · entrega en ${t.entrega.plazo}`
+    ? `Subtotal ${fmt.format(t.subtotal)} + IVA · entrega en ${t.plazo.texto}`
     : hay ? "Ninguna pieza se puede cotizar en automático" : "Sube un modelo para calcular";
   $("btn-solicitar").disabled = !hay;
   $("btn-pdf").disabled = !t.piezas;
@@ -1101,7 +1140,7 @@ function detalleCotizacion() {
   const t = calcularPedido();
   return {
     piezas: t.piezas, subtotal: Math.round(t.subtotal * 100) / 100, iva: Math.round(t.iva * 100) / 100, total: Math.round(t.total * 100) / 100,
-    entrega: `${t.entrega.nombre} (${t.entrega.plazo})`, texto: resumenTexto(),
+    entrega: `${t.entrega.nombre} (${t.plazo.texto})`, texto: resumenTexto(),
     lineas: t.lineas.map(({ p, r }) => ({
       archivo: p.nombre, tecnologia: r.tec.corto, material: r.mat.nombre, color: CONFIG.colores[p.color].nombre,
       calidad: `${r.cal.nombre} ${r.cal.capa} mm`, relleno: p.tec === "fdm" ? `${p.relleno} %` : "—", acabado: nombreAcabado(p),
@@ -1121,7 +1160,7 @@ function resumenTexto() {
     L.push(`   ${r.tec.corto} ${r.mat.nombre}, ${CONFIG.colores[p.color].nombre}, ${r.cal.nombre} ${r.cal.capa} mm${p.tec === "fdm" ? `, relleno ${p.relleno} %` : ""}, ${nombreAcabado(p)}`);
     L.push(`   Cantidad ${p.cant} — ${r.cotizable ? fmt.format(r.unitario) + " c/u = " + fmt.format(r.importe) : "cotización manual"}`);
   });
-  L.push("", `Entrega: ${t.entrega.nombre} (${t.entrega.plazo})`, `Subtotal: ${fmt.format(t.subtotal)}`, `IVA: ${fmt.format(t.iva)}`, `Total: ${fmt.format(t.total)}`);
+  L.push("", `Entrega: ${t.entrega.nombre} (${t.plazo.texto})`, `Subtotal: ${fmt.format(t.subtotal)}`, `IVA: ${fmt.format(t.iva)}`, `Total: ${fmt.format(t.total)}`);
   if (c.notas) L.push("", `Notas: ${c.notas}`);
   return L.join("\n");
 }
@@ -1165,13 +1204,15 @@ async function imprimir() {
   const logo = document.querySelector(".logo").outerHTML;
   const c = state.cliente;
   const folio = state.folio || "Preliminar";
+  const minis = Visor.miniaturas(t.lineas.filter(({ r }) => r.cotizable).map(({ p }) => p));
+  const celdaPieza = (p) => minis.has(p.id) ? `<div class="p-pieza"><img src="${minis.get(p.id)}" alt=""><span>${esc(p.nombre)}</span></div>` : esc(p.nombre);
   $("impresion").innerHTML = `
     <div class="p-cab">${logo}<span class="serie">Cotizador 3D</span></div>
     <h1>Cotización de impresión 3D</h1>
     <p>${state.folio ? `Folio <span class="mono">${state.folio}</span> · ` : "Cotización preliminar sin folio · "}emitida el <span class="mono">${iso(hoy)}</span> · vigente hasta <span class="mono">${iso(vig)}</span>${c && c.nombre ? `<br>Para: ${esc(c.nombre)}${c.empresa ? ", " + esc(c.empresa) : ""}` : ""}</p>
     <table>
       <thead><tr><th>Pieza</th><th>Material y color</th><th>Calidad</th><th>Acabado</th><th class="num">Medidas (mm)</th><th class="num">Cant.</th><th class="num">P. unitario</th><th class="num">Importe</th></tr></thead>
-      <tbody>${t.lineas.map(({ p, r }) => `<tr><td>${esc(p.nombre)}</td><td>${esc(r.mat.nombre)}, ${esc(CONFIG.colores[p.color].nombre)}</td><td>${esc(r.cal.nombre)} ${r.cal.capa} mm${p.tec === "fdm" ? ` · ${p.relleno} %` : ""}</td><td>${esc(nombreAcabado(p))}</td><td class="num">${r.size.map((v) => num(v, 1)).join(" × ")}</td><td class="num">${p.cant}</td><td class="num">${r.cotizable ? fmt.format(r.unitario) : "Manual"}</td><td class="num">${r.cotizable ? fmt.format(r.importe) : "—"}</td></tr>`).join("")}</tbody>
+      <tbody>${t.lineas.map(({ p, r }) => `<tr><td>${celdaPieza(p)}</td><td>${esc(r.mat.nombre)},${esc(CONFIG.colores[p.color].nombre)}</td><td>${esc(r.cal.nombre)} ${r.cal.capa} mm${p.tec === "fdm" ? ` · ${p.relleno} %` : ""}</td><td>${esc(nombreAcabado(p))}</td><td class="num">${r.size.map((v) => num(v, 1)).join(" × ")}</td><td class="num">${p.cant}</td><td class="num">${r.cotizable ? fmt.format(r.unitario) : "Manual"}</td><td class="num">${r.cotizable ? fmt.format(r.importe) : "—"}</td></tr>`).join("")}</tbody>
     </table>
     <div class="p-tot">
       <div><span>Preparación del pedido</span><span class="mono">${fmt.format(t.preparacion)}</span></div>
@@ -1180,7 +1221,7 @@ async function imprimir() {
       <div><span>IVA ${Math.round(CONFIG.iva * 100)} %</span><span class="mono">${fmt.format(t.iva)}</span></div>
       <div><span>Total</span><span class="mono">${fmt.format(t.total)}</span></div>
     </div>
-    <p class="p-notas">Entrega ${t.entrega.nombre.toLowerCase()}: ${t.entrega.plazo} a partir de la confirmación del pedido. Precios en ${CONFIG.moneda}. Cotización generada automáticamente a partir del modelo digital; el precio final se confirma tras la revisión técnica del archivo.${t.manuales ? " Las piezas marcadas como «Manual» se cotizan por separado." : ""}</p>
+    <p class="p-notas">Entrega ${t.entrega.nombre.toLowerCase()}: ${t.plazo.texto} a partir de la confirmación del pedido. Precios en ${CONFIG.moneda}. Cotización generada automáticamente a partir del modelo digital; el precio final se confirma tras la revisión técnica del archivo.${t.manuales ? " Las piezas marcadas como «Manual» se cotizan por separado." : ""}</p>
     <div class="p-caj">
       <div>${logo}</div>
       <div><span class="caj-etq">Documento</span>Cotización</div>
@@ -1188,6 +1229,7 @@ async function imprimir() {
       <div><span class="caj-etq">Versión</span><span class="mono">1</span></div>
       <div><span class="caj-etq">Fecha</span><span class="mono">${iso(hoy).slice(0, 7)}</span></div>
     </div>`;
+  await Promise.all([...$("impresion").querySelectorAll("img")].map((i) => i.decode().catch(() => {})));
   window.print();
 }
 $("btn-pdf").addEventListener("click", imprimir);
@@ -1452,7 +1494,49 @@ const Visor = (() => {
       if (rc.top < 0 || rc.bottom > innerHeight) hoja.scrollIntoView({ block: "center", behavior: reducido ? "auto" : "smooth" });
     }
   }
-  return { mostrar, apariencia, elegirCara, eligiendo: () => modoCara };
+  // Imagen PNG (data URL) de la pieza ya orientada y con su color, para el PDF. Usa un renderizador aparte, fuera de pantalla.
+  function miniaturas(partes, px = 240) {
+    const out = new Map();
+    if (typeof THREE === "undefined") return out;
+    let r;
+    try {
+      const cv = document.createElement("canvas"); cv.width = cv.height = px;
+      r = new THREE.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true });
+    } catch { return out; }
+    r.setSize(px, px, false); r.setClearColor(0xffffff, 1);
+    const esc3 = new THREE.Scene();
+    esc3.add(new THREE.HemisphereLight(0xffffff, 0x9fb1bc, 0.75));
+    const d1 = new THREE.DirectionalLight(0xffffff, 0.65); d1.position.set(1, -1.5, 2); esc3.add(d1);
+    const d2 = new THREE.DirectionalLight(0xffffff, 0.25); d2.position.set(-1.5, 1, 0.5); esc3.add(d2);
+    const cam = new THREE.PerspectiveCamera(35, 1, 0.1, 20000); cam.up.set(0, 0, 1);
+    for (const p of partes) {
+      try {
+        const [cx, cy, cz] = p.geo.centro;
+        const pos = new Float32Array(p.tris.length);
+        for (let i = 0; i < pos.length; i += 3) { pos[i] = p.tris[i] - cx; pos[i + 1] = p.tris[i + 1] - cy; pos[i + 2] = p.tris[i + 2] - cz; }
+        const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.computeVertexNormals();
+        const hex = CONFIG.colores[p.color].hex;
+        const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: hex, roughness: 0.62, metalness: 0, flatShading: true, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
+        const c = new THREE.Color(hex); const lum = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+        if (p.geo.triangles < 150000) m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g, 28), new THREE.LineBasicMaterial({ color: lum < 0.3 ? "#8FA4B0" : "#04202F", transparent: true, opacity: 0.5 })));
+        const { q, pos: pp, s } = transformacion(p);
+        m.scale.setScalar(s); m.quaternion.copy(q); m.position.copy(pp);
+        esc3.add(m);
+        const size = p.ori.size.map((v) => v * s);
+        const t = new THREE.Vector3(0, 0, size[2] / 2);
+        const dist = Math.hypot(...size) / 2 / Math.tan(cam.fov * Math.PI / 360) * 1.15;
+        const th = -Math.PI / 4, ph = Math.PI / 3.2;
+        cam.position.set(t.x + dist * Math.sin(ph) * Math.cos(th), t.y + dist * Math.sin(ph) * Math.sin(th), t.z + dist * Math.cos(ph));
+        cam.lookAt(t);
+        r.render(esc3, cam);
+        out.set(p.id, r.domElement.toDataURL("image/png"));
+        esc3.remove(m); g.dispose();
+      } catch (e) { console.warn("Sin miniatura:", e); }
+    }
+    r.dispose();
+    return out;
+  }
+  return { mostrar, apariencia, elegirCara, miniaturas, eligiendo: () => modoCara };
 })();
 
 render();
