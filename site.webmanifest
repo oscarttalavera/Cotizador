@@ -1,0 +1,10 @@
+{
+  "name": "Cotizador de impresión 3D — Tritic",
+  "short_name": "Cotizador 3D",
+  "lang": "es",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#04202F",
+  "theme_color": "#00476A",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

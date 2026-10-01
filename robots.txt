@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://cotizador.tritic3d.com/sitemap.xml
